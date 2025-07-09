@@ -1,3 +1,4 @@
+// Based on https://www.waveshare.com/wiki/2inch_LCD_Module#Arduino_IDE_Installation_Steps
 #include "DEV_Config.h"
 #include "LCD_Driver.h"
 #include "GUI_Paint.h"
