@@ -27,7 +27,7 @@ void setup() {
   pinMode(POT3_PIN, INPUT);
 
   LCD_Clear(WHITE);
-  Paint_DrawString_EN(8, 8, "Coffee Pot Monitor", &Font24, WHITE, BLACK);
+  Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, WHITE, BLACK);
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
 
