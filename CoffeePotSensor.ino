@@ -7,7 +7,7 @@
 #define POT1_PIN 2
 #define POT2_PIN 3
 #define POT3_PIN 4
-#define REFRESH_INTERVAL 5000UL  // 5 seconds
+#define REFRESH_INTERVAL 3000UL  // 5 seconds
 
 unsigned long placedAt[3] = { 0, 0, 0 };
 bool potPresent[3] = { false, false, false };
@@ -26,7 +26,7 @@ void setup() {
   pinMode(POT3_PIN, INPUT);
 
   LCD_Clear(WHITE);
-  Paint_DrawString_EN(24, 12, "Coffee Pot Monitor", &Font20, WHITE, BLACK);
+  Paint_DrawString_EN(8, 8, "Coffee Pot Monitor", &Font24, WHITE, BLACK);
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
 
@@ -44,31 +44,32 @@ void drawPotStatus(int index, int yOffset) {
   }
 
   // Clear and redraw region
-  LCD_ClearWindow(10, yOffset, 300, yOffset + 40, WHITE);
+  LCD_ClearWindow(10, yOffset, 320, yOffset + 40, WHITE);
 
   // Draw header: Pot Name + Status
-  sprintf(buffer, "%-6s:     %s", potNames[index], present ? "✔ Present" : "✖ Missing");
-  Paint_DrawString_EN(15, yOffset + 5, buffer, &Font16, WHITE, present ? GREEN : RED);
+  sprintf(buffer, "%-6s:  %s", potNames[index], present ? "Present" : "Missing");
+  Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, WHITE, present ? GREEN : RED);
 
   // Draw timer or message
   if (present) {
     unsigned long elapsed = (millis() - placedAt[index]) / 1000;
-    int minutes = elapsed / 60;
+    int hours = elapsed / 3600;
+    int minutes = (elapsed % 3600) / 60;
     int seconds = elapsed % 60;
-    sprintf(buffer, "Last brew:  %02dm %02ds", minutes, seconds);
+    sprintf(buffer, "Last brew:%02dh %02dm %02ds", hours, minutes, seconds);
   } else {
     sprintf(buffer, "Removed");
   }
-  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font16, WHITE, BLACK);
+  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, WHITE, BLACK);
 }
 
 void loop() {
   unsigned long now = millis();
   if (!lastUpdate || (now - lastUpdate >= REFRESH_INTERVAL || now < lastUpdate)) {
     lastUpdate = now;
-    drawPotStatus(0, 40);
-    drawPotStatus(1, 100);
-    drawPotStatus(2, 160);
+    drawPotStatus(0, 50);
+    drawPotStatus(1, 110);
+    drawPotStatus(2, 170);
     // Paint_DrawImage(0, 0);
     // lastUpdate = now;
   }
