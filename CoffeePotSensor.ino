@@ -7,7 +7,7 @@
 #define POT1_PIN 2
 #define POT2_PIN 3
 #define POT3_PIN 4
-#define REFRESH_INTERVAL 10000UL  // 10 seconds
+#define REFRESH_INTERVAL 5000UL  // 5 seconds
 
 unsigned long placedAt[3] = { 0, 0, 0 };
 bool potPresent[3] = { false, false, false };
@@ -44,8 +44,7 @@ void drawPotStatus(int index, int yOffset) {
   }
 
   // Clear and redraw region
-  Paint_DrawRectangle(10, yOffset, 300, yOffset + 40, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
-  // Paint_ClearWindows(10, yOffset, 300, yOffset + 40, WHITE);
+  LCD_ClearWindow(10, yOffset, 300, yOffset + 40, WHITE);
 
   // Draw header: Pot Name + Status
   sprintf(buffer, "%-6s:     %s", potNames[index], present ? "✔ Present" : "✖ Missing");
