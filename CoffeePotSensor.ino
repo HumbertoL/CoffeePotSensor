@@ -14,8 +14,6 @@
 #define COLOR_TEXT   0xC618  // light gray
 #define COLOR_BG     0x18E3  // almost black
 
-unsigned long placedAt[3] = { 0, 0, 0 };
-bool potPresent[3] = { false, false, false };
 unsigned long lastUpdate = 0;
 
 const char* potNames[3] = { "Medium", "Dark", "Decaf" };
@@ -41,12 +39,21 @@ void setup() {
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
 
+// State tracking per pot
+// State tracking per pot
+bool potPresent[3] = {false, false, false};
+unsigned long placedAt[3] = {0, 0, 0};
+bool lastDrawnPresent[3] = {false, false, false};
+bool hasDrawnPresent[3] = {false, false, false};
+int lastElapsedSeconds[3] = {-1, -1, -1};
+
 void drawPotStatus(int index, int yOffset) {
   char buffer[64];
-  int sensorPin = index == 0 ? POT1_PIN : index == 1 ? POT2_PIN
-                                                     : POT3_PIN;
+  int sensorPin = index == 0 ? POT1_PIN : index == 1 ? POT2_PIN : POT3_PIN;
 
   bool present = digitalRead(sensorPin) == LOW;
+
+  // Update state if pot status has changed
   if (present && !potPresent[index]) {
     potPresent[index] = true;
     placedAt[index] = millis();
@@ -54,26 +61,41 @@ void drawPotStatus(int index, int yOffset) {
     potPresent[index] = false;
   }
 
-  // Clear and redraw region
-  LCD_ClearWindow(10, yOffset, 320, yOffset + 40, COLOR_BG);
+  // Always draw on first run or if present state changed
+  if (!hasDrawnPresent[index] || present != lastDrawnPresent[index]) {
+    sprintf(buffer, "%-6s:  %s ", potNames[index], present ? "Present" : "Missing");
+    LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
+    Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, COLOR_BG, present ? GREEN : RED);
+    lastDrawnPresent[index] = present;
+    hasDrawnPresent[index] = true;
+  }
 
-  // Draw header: Pot Name + Status
-  sprintf(buffer, "%-6s:  %s ", potNames[index], present ? "Present" : "Missing");
-  Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, COLOR_BG, present ? GREEN : RED);
-
-  // Draw timer or message
+  // Only update timer line if present and time changed
   if (present) {
     unsigned long elapsed = (millis() - placedAt[index]) / 1000;
-    int hours = elapsed / 3600;
-    int minutes = (elapsed % 3600) / 60;
-    int seconds = elapsed % 60;
-    sprintf(buffer, "Last brew:%02dh %02dm %02ds", hours, minutes, seconds);
+    if (elapsed != lastElapsedSeconds[index]) {
+      int hours = elapsed / 3600;
+      int minutes = (elapsed % 3600) / 60;
+      int seconds = elapsed % 60;
+      sprintf(buffer, "Last brew:%02dh %02dm %02ds", hours, minutes, seconds);
+      LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
+      Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
+      lastElapsedSeconds[index] = elapsed;
+    }
   } else {
-    sprintf(buffer, "Removed");
+    // If it's missing and not already showing 'Removed'
+    if (lastElapsedSeconds[index] != -2) {
+      LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
+      sprintf(buffer, "Removed");
+      Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
+      lastElapsedSeconds[index] = -2; // mark as 'Removed'
+    }
   }
-  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
+
+  // Draw divider only once per update cycle (or leave it persistent)
   Paint_DrawLine(5, yOffset + 52, LCD_WIDTH - 5, yOffset + 52, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
+
 
 void loop() {
 
