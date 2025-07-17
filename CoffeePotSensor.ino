@@ -21,25 +21,18 @@ void setup() {
   Config_Init();
   LCD_Init();
 
-  // test test test
-
   //LCD_Clear(0xffff);
-  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, WHITE);
+  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, BLACK);
 
-  delay(2000);
-  LCD_Clear(WHITE);
-  //   delay(2000);
+  // delay(2000);
+  LCD_Clear(BLACK);
 
   pinMode(POT1_PIN, INPUT);
   pinMode(POT2_PIN, INPUT);
   pinMode(POT3_PIN, INPUT);
 
-
-
-  //  LCD_Clear(WHITE);
-
   Serial.println("\n[debug] Writting text...");
-  Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, WHITE, BLACK);
+  Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, BLACK, WHITE);
   Serial.println("\n[debug] Text written.");
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
@@ -58,10 +51,10 @@ void drawPotStatus(int index, int yOffset) {
   }
 
   // Clear and redraw region
-  LCD_ClearWindow(10, yOffset, 320, yOffset + 40, WHITE);
+  LCD_ClearWindow(10, yOffset, 320, yOffset + 40, BLACK);
 
   // Draw header: Pot Name + Status
-  sprintf(buffer, "%-6s:  %s", potNames[index], present ? "Present" : "Missing");
+  sprintf(buffer, "%-6s:  %s ", potNames[index], present ? "Present" : "Missing");
   Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, WHITE, present ? GREEN : RED);
 
   // Draw timer or message
@@ -70,11 +63,11 @@ void drawPotStatus(int index, int yOffset) {
     int hours = elapsed / 3600;
     int minutes = (elapsed % 3600) / 60;
     int seconds = elapsed % 60;
-    sprintf(buffer, "Last brew:%02dh %02dm %02ds", hours, minutes, seconds);
+    sprintf(buffer, "Last brew:%02dh %02dm %02ds   ", hours, minutes, seconds);
   } else {
     sprintf(buffer, "Removed");
   }
-  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, WHITE, BLACK);
+  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, BLACK, WHITE);
 }
 
 void loop() {

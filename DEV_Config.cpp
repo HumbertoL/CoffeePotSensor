@@ -54,5 +54,6 @@ void GPIO_Init()
   SPI.setBitOrder(MSBFIRST);
   SPI.setClockDivider(SPI_CLOCK_DIV2);
   SPI.begin();
-  SPI.setFrequency(10000000);  // Try 10 MHz or lower
+  // 10000000 = 10MHz
+  SPI.setFrequency(20000000); 
   }
