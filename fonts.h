@@ -62,13 +62,21 @@ typedef struct _tFont
 } sFONT;
 
 
-//GB2312
-typedef struct                                          // 汉字字模数据结构
-{
-  unsigned char index[3];                               // 汉字内码索引
-  const char matrix[MAX_HEIGHT_FONT*MAX_WIDTH_FONT/8];  // 点阵码数据
-}CH_CN;
 
+
+extern sFONT Font24;
+extern sFONT Font20;
+extern sFONT Font16;
+// extern sFONT Font12;
+extern sFONT Font8;
+
+/**
+ * Structure for a single Chinese character font
+ */
+typedef struct {
+  unsigned char index[3];     // 汉字内码索引
+  const char matrix[MAX_HEIGHT_FONT * MAX_WIDTH_FONT / 8];
+} CH_CN;
 
 typedef struct
 {    
@@ -80,14 +88,10 @@ typedef struct
   
 }cFONT;
 
-extern sFONT Font24;
-extern sFONT Font20;
-extern sFONT Font16;
-extern sFONT Font12;
-extern sFONT Font8;
+extern const CH_CN Font24CN[];
+extern const CH_CN Font12CN[];
 
-extern cFONT Font12CN;
-extern cFONT Font24CN;
+
 extern const unsigned char Font16_Table[];
 
 #ifdef __cplusplus

@@ -47,10 +47,18 @@
 /**
  * GPIO config
 **/
-#define DEV_CS_PIN  10
-#define DEV_DC_PIN  7
-#define DEV_RST_PIN 8
-#define DEV_BL_PIN  9
+
+// Arduino UNO
+// #define DEV_CS_PIN  10
+// #define DEV_DC_PIN  7
+// #define DEV_RST_PIN 8
+// #define DEV_BL_PIN  9
+
+// ESP8266
+#define DEV_CS_PIN   D2 // D8  // or use GPIO15 directly
+#define DEV_DC_PIN   D1 // D3
+#define DEV_RST_PIN  D4
+#define DEV_BL_PIN   D6  // optional
 
 
 /**

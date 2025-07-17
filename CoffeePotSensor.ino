@@ -3,6 +3,7 @@
 #include "LCD_Driver.h"
 #include "GUI_Paint.h"
 #include "Debug.h"
+// #include <SPI.h>
 
 
 #define POT1_PIN 2
@@ -19,15 +20,27 @@ const char* potNames[3] = { "Medium", "Dark", "Decaf" };
 void setup() {
   Config_Init();
   LCD_Init();
-  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, ROTATE_0, WHITE);
-  Paint_Clear(WHITE);
+
+  // test test test
+
+  //LCD_Clear(0xffff);
+  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, WHITE);
+
+  delay(2000);
+  LCD_Clear(WHITE);
+  //   delay(2000);
 
   pinMode(POT1_PIN, INPUT);
   pinMode(POT2_PIN, INPUT);
   pinMode(POT3_PIN, INPUT);
 
-  LCD_Clear(WHITE);
+
+
+  //  LCD_Clear(WHITE);
+
+  Serial.println("\n[debug] Writting text...");
   Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, WHITE, BLACK);
+  Serial.println("\n[debug] Text written.");
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
 
@@ -65,12 +78,17 @@ void drawPotStatus(int index, int yOffset) {
 }
 
 void loop() {
+
   unsigned long now = millis();
   if (!lastUpdate || (now - lastUpdate >= REFRESH_INTERVAL || now < lastUpdate)) {
+    Serial.println("\n[debug] In loop");
     lastUpdate = now;
     drawPotStatus(0, 50);
+    Serial.println("\n[debug] Pot 1 status");
     drawPotStatus(1, 110);
+    Serial.println("\n[debug] Pot 2 status");
     drawPotStatus(2, 170);
+    Serial.println("\n[debug] Pot 3 status");
     // Paint_DrawImage(0, 0);
     // lastUpdate = now;
   }

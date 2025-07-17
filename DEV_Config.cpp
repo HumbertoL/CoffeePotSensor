@@ -34,6 +34,7 @@
 void GPIO_Init()
 {
   pinMode(DEV_CS_PIN, OUTPUT);
+  digitalWrite(DEV_CS_PIN, LOW);
   pinMode(DEV_RST_PIN, OUTPUT);
   pinMode(DEV_DC_PIN, OUTPUT);
   pinMode(DEV_BL_PIN, OUTPUT);
@@ -46,10 +47,12 @@ void GPIO_Init()
   
   //Serial
   Serial.begin(115200);
+  Serial.println("\n[BOOT] Starting CoffeePot Monitor...");
   
   //spi
   SPI.setDataMode(SPI_MODE3);
   SPI.setBitOrder(MSBFIRST);
   SPI.setClockDivider(SPI_CLOCK_DIV2);
   SPI.begin();
+  SPI.setFrequency(10000000);  // Try 10 MHz or lower
   }

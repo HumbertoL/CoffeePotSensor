@@ -535,64 +535,64 @@ void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char * pString,
 ******************************************************************************/
 void Paint_DrawString_CN(UWORD Xstart, UWORD Ystart, const char * pString, cFONT* font, UWORD Color_Background, UWORD Color_Foreground)
 {
- const unsigned char* p_text = pString;
+// const unsigned char* p_text = (const unsigned char*)pString;
 
-  int refcolumn = Xstart;
-  int i, j, Num;
-  /* Send the string character by character on EPD */
-  while (*p_text != 0) {
-    if (*p_text < 0x7F) {                                  //ASCII
-      for (Num = 0; Num < font->size ; Num++) {
-        if (*p_text == pgm_read_byte(&font->table[Num].index[0])) {
-          const char* ptr = &font->table[Num].matrix[0];
+//   int refcolumn = Xstart;
+//   int i, j, Num;
+//   /* Send the string character by character on EPD */
+//   while (*p_text != 0) {
+//     if (*p_text < 0x7F) {                                  //ASCII
+//       for (Num = 0; Num < font->size ; Num++) {
+//         if (*p_text == pgm_read_byte(&font->table[Num].index[0])) {
+//           const char* ptr = &font->table[Num].matrix[0];
 
-          for (j = 0; j < font->Height; j++) {
-            for (i = 0; i < font->Width; i++) {
-              if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
-                Paint_SetPixel(refcolumn + i,Ystart + j, Color_Foreground);
-              }
-              if (i % 8 == 7) {
-                ptr++;
-              }
-            }
-            if (font->Width % 8 != 0) {
-              ptr++;
-            }
-          }
-          break;
-        }
-      }
-      /* Point on the next character */
-      p_text += 1;
-      /* Decrement the column position by 16 */
-      refcolumn += font->ASCII_Width;
-    } else {                                   //中文
-      for (Num = 0; Num < font->size ; Num++) {
-        if ((*p_text == pgm_read_byte(&font->table[Num].index[0])) && (*(p_text + 1) == pgm_read_byte(&font->table[Num].index[1])) && (*(p_text + 2) == pgm_read_byte(&font->table[Num].index[2]))) {
-          const char* ptr = &font->table[Num].matrix[0];
+//           for (j = 0; j < font->Height; j++) {
+//             for (i = 0; i < font->Width; i++) {
+//               if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
+//                 Paint_SetPixel(refcolumn + i,Ystart + j, Color_Foreground);
+//               }
+//               if (i % 8 == 7) {
+//                 ptr++;
+//               }
+//             }
+//             if (font->Width % 8 != 0) {
+//               ptr++;
+//             }
+//           }
+//           break;
+//         }
+//       }
+//       /* Point on the next character */
+//       p_text += 1;
+//       /* Decrement the column position by 16 */
+//       refcolumn += font->ASCII_Width;
+//     } else {                                   //中文
+//       for (Num = 0; Num < font->size ; Num++) {
+//         if ((*p_text == pgm_read_byte(&font->table[Num].index[0])) && (*(p_text + 1) == pgm_read_byte(&font->table[Num].index[1])) && (*(p_text + 2) == pgm_read_byte(&font->table[Num].index[2]))) {
+//           const char* ptr = &font->table[Num].matrix[0];
 
-          for (j = 0; j < font->Height; j++) {
-            for (i = 0; i < font->Width; i++) {
-              if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
-                Paint_SetPixel(refcolumn + i,Ystart + j, Color_Foreground);
-              }
-              if (i % 8 == 7) {
-                ptr++;
-              }
-            }
-            if (font->Width % 8 != 0) {
-              ptr++;
-            }
-          }
-          break;
-        }
-      }
-      /* Point on the next character */
-      p_text += 3;
-      /* Decrement the column position by 16 */
-      refcolumn += font->Width;
-    }
-  }
+//           for (j = 0; j < font->Height; j++) {
+//             for (i = 0; i < font->Width; i++) {
+//               if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
+//                 Paint_SetPixel(refcolumn + i,Ystart + j, Color_Foreground);
+//               }
+//               if (i % 8 == 7) {
+//                 ptr++;
+//               }
+//             }
+//             if (font->Width % 8 != 0) {
+//               ptr++;
+//             }
+//           }
+//           break;
+//         }
+//       }
+//       /* Point on the next character */
+//       p_text += 3;
+//       /* Decrement the column position by 16 */
+//       refcolumn += font->Width;
+//     }
+//   }
 }
 
 
