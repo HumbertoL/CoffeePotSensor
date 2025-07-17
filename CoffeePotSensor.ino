@@ -11,6 +11,9 @@
 #define POT3_PIN 4
 #define REFRESH_INTERVAL 3000UL  // 5 seconds
 
+#define COLOR_TEXT   0xC618  // light gray
+#define COLOR_BG     0x18E3  // almost black
+
 unsigned long placedAt[3] = { 0, 0, 0 };
 bool potPresent[3] = { false, false, false };
 unsigned long lastUpdate = 0;
@@ -22,18 +25,19 @@ void setup() {
   LCD_Init();
 
   //LCD_Clear(0xffff);
-  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, BLACK);
+  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, COLOR_BG);
 
-  // delay(2000);
-  LCD_Clear(BLACK);
+ // delay(2000);
+  LCD_Clear(COLOR_BG);
 
   pinMode(POT1_PIN, INPUT);
   pinMode(POT2_PIN, INPUT);
   pinMode(POT3_PIN, INPUT);
 
   Serial.println("\n[debug] Writting text...");
-  Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, BLACK, WHITE);
+  Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, COLOR_BG, COLOR_TEXT);
   Serial.println("\n[debug] Text written.");
+  
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
 
@@ -51,11 +55,11 @@ void drawPotStatus(int index, int yOffset) {
   }
 
   // Clear and redraw region
-  LCD_ClearWindow(10, yOffset, 320, yOffset + 40, BLACK);
+  LCD_ClearWindow(10, yOffset, 320, yOffset + 40, COLOR_BG);
 
   // Draw header: Pot Name + Status
   sprintf(buffer, "%-6s:  %s ", potNames[index], present ? "Present" : "Missing");
-  Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, WHITE, present ? GREEN : RED);
+  Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, COLOR_BG, present ? GREEN : RED);
 
   // Draw timer or message
   if (present) {
@@ -63,11 +67,12 @@ void drawPotStatus(int index, int yOffset) {
     int hours = elapsed / 3600;
     int minutes = (elapsed % 3600) / 60;
     int seconds = elapsed % 60;
-    sprintf(buffer, "Last brew:%02dh %02dm %02ds   ", hours, minutes, seconds);
+    sprintf(buffer, "Last brew:%02dh %02dm %02ds", hours, minutes, seconds);
   } else {
     sprintf(buffer, "Removed");
   }
-  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, BLACK, WHITE);
+  Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
+  Paint_DrawLine(5, yOffset + 52, LCD_WIDTH - 5, yOffset + 52, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
 
 void loop() {
