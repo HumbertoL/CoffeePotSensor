@@ -7,7 +7,7 @@
 #define POT1_PIN 2
 #define POT2_PIN 3
 #define POT3_PIN 4
-#define REFRESH_INTERVAL 2000UL  // 3 seconds
+#define REFRESH_INTERVAL 100UL  // 1 second
 
 #define COLOR_TEXT 0xC618  // light gray
 #define COLOR_BG 0x18E3    // almost black
@@ -54,7 +54,9 @@ void setup() {
 
 String formatElapsedTime(unsigned long seconds) {
   if (seconds < 60) {
-    return "Last brew: " + String(seconds) + " sec";
+    char buffer[32];
+    sprintf(buffer, "Last brew: %02d sec", seconds);
+    return String(buffer);
   } else {
     int hours = seconds / 3600;
     int minutes = (seconds % 3600) / 60;
@@ -64,13 +66,13 @@ String formatElapsedTime(unsigned long seconds) {
   }
 }
 
-void updatePotStatus(CoffeePot& pot) {
+void updatePotStatus(CoffeePot& pot, unsigned long now) {
   bool present = digitalRead(pot.sensorPin) == LOW;
 
   // Update state if pot status has changed
   if (present && !pot.present) {
     pot.present = true;
-    pot.placedAt = millis();
+    pot.placedAt = now;
   } else if (!present && pot.present) {
     pot.present = false;
   }
@@ -81,7 +83,7 @@ void drawPotStatus(CoffeePot& pot, int yOffset) {
 
   // Draw pot name in green only once
   if (!pot.nameDrawn) {
-    LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
+    // LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
     Paint_DrawString_EN(15, yOffset, pot.name, &Font20, COLOR_BG, STARBUCKS_GREEN);
 
     // Draw divider
@@ -96,13 +98,13 @@ void drawPotStatus(CoffeePot& pot, int yOffset) {
     if (elapsed != pot.lastElapsedSeconds) {
       String timeStr = formatElapsedTime(elapsed);
 
-      LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
+      // LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
       Paint_DrawString_EN(15, yOffset + 25, timeStr.c_str(), &Font20, COLOR_BG, COLOR_TEXT);
       pot.lastElapsedSeconds = elapsed;
     }
   } else {
-    LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
-    sprintf(buffer, "Removed");
+    //   LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
+    sprintf(buffer, "Removed           ");
     Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
     pot.lastElapsedSeconds = -1;
   }
@@ -114,7 +116,7 @@ void loop() {
   if (!lastUpdate || (now - lastUpdate >= REFRESH_INTERVAL || now < lastUpdate)) {
     lastUpdate = now;
     for (int i = 0; i < 3; ++i) {
-      updatePotStatus(pots[i]);
+      updatePotStatus(pots[i], now);
       // Start at 50, then increment by 60 for each pot
       int yOffset = 50 + (i * 60);
       drawPotStatus(pots[i], yOffset);
