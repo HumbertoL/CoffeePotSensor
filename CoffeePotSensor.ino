@@ -9,14 +9,30 @@
 #define POT1_PIN 2
 #define POT2_PIN 3
 #define POT3_PIN 4
-#define REFRESH_INTERVAL 3000UL  // 5 seconds
+#define REFRESH_INTERVAL 2000UL  // 3 seconds
 
 #define COLOR_TEXT 0xC618  // light gray
 #define COLOR_BG 0x18E3    // almost black
 
 unsigned long lastUpdate = 0;
 
-const char* potNames[3] = { "Medium", "Dark", "Decaf" };
+struct CoffeePot {
+  const char* name;
+  int sensorPin;
+  bool present;
+  unsigned long placedAt;
+  bool lastDrawnPresent;
+  bool hasDrawnPresent;
+  int lastElapsedSeconds;
+  bool timerStatusDrawn; // true if "Removed" message is currently shown
+};
+
+CoffeePot pots[3] = {
+  { "Medium", POT1_PIN, false, 0, false, false, -1, false },
+  { "Dark", POT2_PIN, false, 0, false, false, -1, false },
+  { "Decaf", POT3_PIN, false, 0, false, false, -1, false }
+};
+
 
 void setup() {
   Config_Init();
@@ -51,77 +67,66 @@ String formatElapsedTime(unsigned long seconds) {
   }
 }
 
-
-// State tracking per pot
-// State tracking per pot
-bool potPresent[3] = { false, false, false };
-unsigned long placedAt[3] = { 0, 0, 0 };
-bool lastDrawnPresent[3] = { false, false, false };
-bool hasDrawnPresent[3] = { false, false, false };
-int lastElapsedSeconds[3] = { -1, -1, -1 };
-
-void drawPotStatus(int index, int yOffset) {
-  char buffer[64];
-  int sensorPin = index == 0 ? POT1_PIN : index == 1 ? POT2_PIN
-                                                     : POT3_PIN;
-
-  bool present = digitalRead(sensorPin) == LOW;
+void updatePotStatus(CoffeePot& pot) {
+  bool present = digitalRead(pot.sensorPin) == LOW;
 
   // Update state if pot status has changed
-  if (present && !potPresent[index]) {
-    potPresent[index] = true;
-    placedAt[index] = millis();
-  } else if (!present && potPresent[index]) {
-    potPresent[index] = false;
+  if (present && !pot.present) {
+    pot.present = true;
+    pot.placedAt = millis();
+  } else if (!present && pot.present) {
+    pot.present = false;
   }
+}
 
-  bool isFirstDraw = elapsed < REFRESH_INTERVAL;
+void drawPotStatus(CoffeePot& pot, int yOffset) {
+  char buffer[64];
 
   // Always draw on first run or if present state changed
-  if (!hasDrawnPresent[index] || present != lastDrawnPresent[index]) {
-    sprintf(buffer, "%-6s:  %s ", potNames[index], present ? "Present" : "Missing");
+  if (!pot.hasDrawnPresent || pot.present != pot.lastDrawnPresent) {
+    sprintf(buffer, "%-6s:  %s ", pot.name, pot.present ? "Present" : "Missing");
     LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
-    Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, COLOR_BG, present ? GREEN : RED);
-    lastDrawnPresent[index] = present;
-    hasDrawnPresent[index] = true;
+    Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, COLOR_BG, pot.present ? GREEN : RED);
+    pot.lastDrawnPresent = pot.present;
+    pot.hasDrawnPresent = true;
   }
 
   // Only update timer line if present and time changed
-  if (present) {
-    unsigned long elapsed = (millis() - placedAt[index]) / 1000;
-    if (elapsed != lastElapsedSeconds[index]) {
+  if (pot.present) {
+    unsigned long elapsed = (millis() - pot.placedAt) / 1000;
+    if (elapsed != pot.lastElapsedSeconds) {
       String timeStr = formatElapsedTime(elapsed);
 
       LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
       Paint_DrawString_EN(15, yOffset + 25, timeStr.c_str(), &Font20, COLOR_BG, COLOR_TEXT);
-      lastElapsedSeconds[index] = elapsed;
+      pot.lastElapsedSeconds = elapsed;
+      pot.timerStatusDrawn = false; // reset, since we're showing elapsed time
     }
   } else {
     // If it's missing and not already showing 'Removed'
-    if (lastElapsedSeconds[index] != -2) {
+    if (!pot.timerStatusDrawn) {
       LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
       sprintf(buffer, "Removed");
       Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
-      lastElapsedSeconds[index] = -2;  // mark as 'Removed'
+      pot.timerStatusDrawn = true; // mark as 'Removed' drawn
+      pot.lastElapsedSeconds = -1; // reset elapsed
     }
   }
 
   // Draw divider only once per update cycle (or leave it persistent)
-  Paint_DrawLine(5, yOffset + 52, LCD_WIDTH - 5, yOffset + 52, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+  Paint_DrawLine(5, yOffset + 53, LCD_WIDTH - 5, yOffset + 53, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
 
 
 void loop() {
-
   unsigned long now = millis();
   if (!lastUpdate || (now - lastUpdate >= REFRESH_INTERVAL || now < lastUpdate)) {
-  //  Serial.println("\n[debug] In loop");
     lastUpdate = now;
-    drawPotStatus(0, 50);
-   // Serial.println("\n[debug] Pot 1 status");
-    drawPotStatus(1, 110);
-  //  Serial.println("\n[debug] Pot 2 status");
-    drawPotStatus(2, 170);
-  //  Serial.println("\n[debug] Pot 3 status");
+    for (int i = 0; i < 3; ++i) {
+      updatePotStatus(pots[i]);
+    }
+    drawPotStatus(pots[0], 50);
+    drawPotStatus(pots[1], 110);
+    drawPotStatus(pots[2], 170);
   }
 }
