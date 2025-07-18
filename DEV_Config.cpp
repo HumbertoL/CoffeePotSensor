@@ -54,6 +54,8 @@ void GPIO_Init()
   SPI.setBitOrder(MSBFIRST);
   SPI.setClockDivider(SPI_CLOCK_DIV2);
   SPI.begin();
+
+  // ESP 8266
   // 10000000 = 10MHz
-  SPI.setFrequency(20000000); 
+  //SPI.setFrequency(20000000); 
   }
