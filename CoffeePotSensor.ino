@@ -3,8 +3,6 @@
 #include "LCD_Driver.h"
 #include "GUI_Paint.h"
 #include "Debug.h"
-// #include <SPI.h>
-
 
 #define POT1_PIN 2
 #define POT2_PIN 3
@@ -13,6 +11,7 @@
 
 #define COLOR_TEXT 0xC618  // light gray
 #define COLOR_BG 0x18E3    // almost black
+#define STARBUCKS_GREEN 0x07E0
 
 unsigned long lastUpdate = 0;
 
@@ -21,16 +20,14 @@ struct CoffeePot {
   int sensorPin;
   bool present;
   unsigned long placedAt;
-  bool lastDrawnPresent;
-  bool hasDrawnPresent;
   int lastElapsedSeconds;
-  bool timerStatusDrawn; // true if "Removed" message is currently shown
+  bool nameDrawn;  // true if name has been drawn
 };
 
 CoffeePot pots[3] = {
-  { "Medium", POT1_PIN, false, 0, false, false, -1, false },
-  { "Dark", POT2_PIN, false, 0, false, false, -1, false },
-  { "Decaf", POT3_PIN, false, 0, false, false, -1, false }
+  { "Medium", POT1_PIN, false, 0, -1, false },
+  { "Dark", POT2_PIN, false, 0, -1, false },
+  { "Decaf", POT3_PIN, false, 0, -1, false }
 };
 
 
@@ -82,13 +79,15 @@ void updatePotStatus(CoffeePot& pot) {
 void drawPotStatus(CoffeePot& pot, int yOffset) {
   char buffer[64];
 
-  // Always draw on first run or if present state changed
-  if (!pot.hasDrawnPresent || pot.present != pot.lastDrawnPresent) {
-    sprintf(buffer, "%-6s:  %s ", pot.name, pot.present ? "Present" : "Missing");
+  // Draw pot name in green only once
+  if (!pot.nameDrawn) {
     LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
-    Paint_DrawString_EN(15, yOffset + 5, buffer, &Font20, COLOR_BG, pot.present ? GREEN : RED);
-    pot.lastDrawnPresent = pot.present;
-    pot.hasDrawnPresent = true;
+    Paint_DrawString_EN(15, yOffset, pot.name, &Font20, COLOR_BG, STARBUCKS_GREEN);
+
+    // Draw divider
+    Paint_DrawLine(5, yOffset + 53, LCD_WIDTH - 5, yOffset + 53, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
+
+    pot.nameDrawn = true;
   }
 
   // Only update timer line if present and time changed
@@ -100,21 +99,13 @@ void drawPotStatus(CoffeePot& pot, int yOffset) {
       LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
       Paint_DrawString_EN(15, yOffset + 25, timeStr.c_str(), &Font20, COLOR_BG, COLOR_TEXT);
       pot.lastElapsedSeconds = elapsed;
-      pot.timerStatusDrawn = false; // reset, since we're showing elapsed time
     }
   } else {
-    // If it's missing and not already showing 'Removed'
-    if (!pot.timerStatusDrawn) {
-      LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
-      sprintf(buffer, "Removed");
-      Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
-      pot.timerStatusDrawn = true; // mark as 'Removed' drawn
-      pot.lastElapsedSeconds = -1; // reset elapsed
-    }
+    LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
+    sprintf(buffer, "Removed");
+    Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
+    pot.lastElapsedSeconds = -1;
   }
-
-  // Draw divider only once per update cycle (or leave it persistent)
-  Paint_DrawLine(5, yOffset + 53, LCD_WIDTH - 5, yOffset + 53, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
 }
 
 
@@ -124,9 +115,9 @@ void loop() {
     lastUpdate = now;
     for (int i = 0; i < 3; ++i) {
       updatePotStatus(pots[i]);
+      // Start at 50, then increment by 60 for each pot
+      int yOffset = 50 + (i * 60);
+      drawPotStatus(pots[i], yOffset);
     }
-    drawPotStatus(pots[0], 50);
-    drawPotStatus(pots[1], 110);
-    drawPotStatus(pots[2], 170);
   }
 }
