@@ -6,7 +6,7 @@ Have you ever gone into the kitchen, hoping for a fresh cup of Joe… but left w
 
 Introducing: **Brew-em-all™**
 
-The no-nonsense, caffeine-loving gadget that finally answers the question:  
+The no-nonsense, caffeine-loving gadget that finally answers the question:
 
 **“How long has that pot been sitting there?”**
 
@@ -27,6 +27,8 @@ Is it smart? *Also no.*
 But does it work? *Debatable.*  
 
 **Order yours today!**
+
+[![brew-em-all](http://img.youtube.com/vi/xJZB41Rl86o/0.jpg)](http://www.youtube.com/watch?v=xJZB41Rl86o "brew-em-all")
 
 ---
 
