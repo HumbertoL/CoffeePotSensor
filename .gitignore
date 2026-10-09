@@ -1,0 +1,6 @@
+# CAD exports (regenerate from SolidWorks / OpenSCAD instead of committing)
+*.stl
+*.STL
+
+# macOS
+.DS_Store

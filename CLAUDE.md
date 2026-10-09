@@ -34,7 +34,7 @@ CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/
 | `DEV_Config.h/.cpp` | Waveshare (modified) | Per-board pin defines and `DEV_SPI_HZ`, SPI/serial init (`SPI.beginTransaction` is opened once and never ended) |
 | `LCD_Driver.h/.cpp` | Waveshare | ST7789 init, window/cursor and pixel writes. `LCD_WIDTH 320`, `LCD_HEIGHT 240` (landscape via MADCTL `0xA0`) |
 | `GUI_Paint.h/.cpp` | Waveshare | Drawing primitives (`Paint_DrawString_EN`, `Paint_DrawLine`, …) |
-| `font8/16/20/24.cpp`, `fonts.h` | Waveshare | Monospace bitmap fonts in PROGMEM. Widths: 5 / 11 / 14 / 17 px; heights: 8 / 16 / 20 / 24 |
+| `font8/16/20/24.cpp`, `fonts.h` | Waveshare | Monospace bitmap fonts in PROGMEM. Widths: 5 / 11 / 14 / 17 px; heights: 8 / 16 / 20 / 24. Only Font20 (3.8 KB) and Font24 (6.8 KB, used just for the title) are linked in. Unused fonts are discarded by `--gc-sections`, so they cost nothing in flash; there's no need to delete them or `#ifdef` them out |
 | `image.cpp/.h` | Waveshare | 70×70 sample bitmap. Unused (the linker drops it) |
 | `Debug.h` | Waveshare | `Debug()` macro. Not useful: AVR `printf` isn't wired to Serial |
 
@@ -86,6 +86,14 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
   - Include `<Arduino.h>` for `PROGMEM`/`pgm_read_byte`, not `<avr/pgmspace.h>`, which doesn't exist on ESP32.
   - Keep includes outside `extern "C"` blocks.
   - Guard AVR-only code (such as `asm`) with `#if defined(ARDUINO_ARCH_ESP32)` / `#else`.
+
+## Case (`case/`)
+
+- The SolidWorks files (`.SLDASM` / `.SLDPRT`) are the original design. They're a closed binary format and can't be read here.
+- `case/scad/` is a verified OpenSCAD conversion: one file per part plus `assembly.scad`. See [case/README.md](case/README.md) for the parts, the coordinate frame and the accuracy table.
+- **STL files are git-ignored.** Never commit them.
+- To re-verify a part after a change, run `python3 case/tools/compare.py <STL> case/scad/<part>.scad "<module>()"`. Aim for < 0.5 % each way. Use `case/tools/slice.py` to measure exact outlines.
+- In part files, set `$fn` **inside** the module. A top-level `$fn` doesn't apply when the file is loaded with `use <>`. Use `$fn = 36` to match SolidWorks' 10° facets.
 
 ## Conventions
 
