@@ -62,6 +62,35 @@ But does it work? *Debatable.*
 
 > **Note:** This screen was designed for 3.3V logic. The Nano outputs 5V on its GPIOs, so technically this is out of spec. Many users (including this one) report the display works anyway, but for long-term reliability you might consider using logic level shifters.
 
+### Pot Sensors
+
+| Pot    | Arduino Nano |
+|--------|--------------|
+| Medium | D2           |
+| Dark   | D3           |
+| Decaf  | D4           |
+
+Each sensor must pull its pin **LOW when a pot is on the burner** and HIGH when it isn't. Any digital sensor that does this will work, such as an IR proximity module or a microswitch to GND.
+
+The pins are configured as plain `INPUT`, with no internal pull-up. If you use a bare switch, either add an external pull-up resistor (about 10 kΩ to 5V) or change `pinMode` to `INPUT_PULLUP` in `CoffeePotSensor.ino`.
+
+The timer resets whenever a pot goes from *removed* to *present*. A pot that is already present at power-on is timed from boot.
+
+---
+
+## 🛠️ Building & Flashing
+
+**Arduino IDE:** open `CoffeePotSensor.ino`. Select **Tools → Board → Arduino Nano**. Some clones need **Processor → ATmega328P (Old Bootloader)**. Then click Upload.
+
+**arduino-cli:**
+
+```bash
+arduino-cli compile --fqbn arduino:avr:nano .
+arduino-cli upload  --fqbn arduino:avr:nano -p <port> .
+```
+
+No extra libraries are needed. The Waveshare driver, fonts and drawing code are included in the sketch folder. Serial debug output runs at **115200 baud**.
+
 ---
 
 ## ⚡ Running on ESP8266 (e.g., Wemos D1 Mini)

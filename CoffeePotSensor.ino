@@ -7,7 +7,7 @@
 #define POT1_PIN 2
 #define POT2_PIN 3
 #define POT3_PIN 4
-#define REFRESH_INTERVAL 100UL  // 1 second
+#define REFRESH_INTERVAL 100UL  // ms between sensor polls
 
 #define COLOR_TEXT 0xC618  // light gray
 #define COLOR_BG 0x18E3    // almost black
