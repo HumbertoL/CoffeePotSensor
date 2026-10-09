@@ -1,14 +1,16 @@
 # Case
 
-The current case is wall-mounted behind the coffee pots. It is about 44 cm wide, 2.7 cm deep and 18 cm tall at the display. It was designed in SolidWorks, and those files remain the original design:
-- `coffee timer.SLDASM`: the assembly.
-- `coffee timer-00N.SLDPRT`: the individual parts.
-
-[`scad/`](scad) is an OpenSCAD conversion of the same design. It reproduces the SolidWorks parts as they are, without redesigning anything. It was reverse-engineered from the STL exports and checked against them; see Accuracy below.
+The current case is wall-mounted behind the coffee pots. It is about 44 cm wide, 2.7 cm deep and 18 cm tall at the display. It was originally designed in SolidWorks. [`scad/`](scad) is now the source of truth: an OpenSCAD conversion of that design. It reproduces the SolidWorks parts as they are, without redesigning anything. It was reverse-engineered from the STL exports and checked against them; see Accuracy below.
 
 The conversion makes two deliberate changes, listed under Changes from the SolidWorks design.
 
-STL files are git-ignored. Export them from SolidWorks or OpenSCAD when you need them.
+The original SolidWorks files (`coffee timer.SLDASM`, `coffee timer-00N.SLDPRT`) and their STL exports are no longer in the repo. They're preserved in git history at commit `e428796`. To get them back, for example to re-run the accuracy checks:
+
+```bash
+git checkout e428796 -- case
+```
+
+That restores them into `case/`. STL and SolidWorks files are git-ignored, so they won't be committed again by accident. Export STLs from OpenSCAD when you need them.
 
 ## Parts
 
@@ -42,7 +44,7 @@ The parts are modeled in their assembled orientation, not in a print orientation
 
 ## Accuracy
 
-Each part was compared with the STL exported from the SolidWorks assembly (`case/coffee timer - coffee timer-*.STL`) by measuring the volume of the difference in both directions.
+Each part was compared with the STL exported from the SolidWorks assembly (`case/coffee timer - coffee timer-*.STL`, in commit `e428796`) by measuring the volume of the difference in both directions.
 
 | Part | Original − model | Model − original |
 |---|---|---|
@@ -60,7 +62,7 @@ The leftovers come from how curves are broken into flat facets: SolidWorks used 
 
 ### Tools
 
-[`tools/`](tools) contains the Python scripts used for the conversion. They need only Python 3 and the `openscad` command line. Use them to re-check a model after the SolidWorks design changes.
+[`tools/`](tools) contains the Python scripts used for the conversion. They need only Python 3 and the `openscad` command line. Use them to re-check a model against the original STLs restored from git history.
 - `compare.py STL SCADFILE "module()"`: reports the volume difference in each direction, as in the table above.
 - `slice.py STL x|y|z POS --local`: cuts a mesh at a plane and prints exact outline coordinates. This is how dimensions were measured.
 

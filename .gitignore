@@ -1,6 +1,9 @@
-# CAD exports (regenerate from SolidWorks / OpenSCAD instead of committing)
+# CAD exports and original SolidWorks files (kept in history at e428796; OpenSCAD is the source now)
 *.stl
 *.STL
+*.SLDPRT
+*.SLDASM
+*.SLDDRW
 
 # macOS
 .DS_Store

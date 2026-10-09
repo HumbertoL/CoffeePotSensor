@@ -89,10 +89,10 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
 
 ## Case (`case/`)
 
-- The SolidWorks files (`.SLDASM` / `.SLDPRT`) are the original design. They're a closed binary format and can't be read here.
+- The OpenSCAD files are the source of truth. The original SolidWorks files (`.SLDASM` / `.SLDPRT`, a closed binary format that can't be read here) and their STL exports were removed from the repo. They're kept in git history at commit `e428796`, and `git checkout e428796 -- case` restores them.
 - `case/scad/` is a verified OpenSCAD conversion: one file per part plus `assembly.scad`. See [case/README.md](case/README.md) for the parts, the coordinate frame and the accuracy table.
-- **STL files are git-ignored.** Never commit them.
-- To re-verify a part after a change, run `python3 case/tools/compare.py <STL> case/scad/<part>.scad "<module>()"`. Aim for < 0.5 % each way. Use `case/tools/slice.py` to measure exact outlines.
+- **STL and SolidWorks files are git-ignored.** Never commit them.
+- To re-verify a part against the originals, restore them as above, then run `python3 case/tools/compare.py <STL> case/scad/<part>.scad "<module>()"`. Aim for < 0.5 % each way. Use `case/tools/slice.py` to measure exact outlines.
 - In part files, set `$fn` **inside** the module. A top-level `$fn` doesn't apply when the file is loaded with `use <>`. Use `$fn = 36` to match SolidWorks' 10° facets.
 
 ## Conventions
