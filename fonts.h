@@ -45,13 +45,13 @@
 #define MAX_WIDTH_FONT          32
 #define OFFSET_BITMAP           
 
+/* Includes ------------------------------------------------------------------*/
+#include <stdint.h>
+#include <Arduino.h>  // PROGMEM / pgm_read_byte on both AVR and ESP32
+
 #ifdef __cplusplus
  extern "C" {
 #endif
-
-/* Includes ------------------------------------------------------------------*/
-#include <stdint.h>
-#include <avr/pgmspace.h>
 //ASCII
 typedef struct _tFont
 {    

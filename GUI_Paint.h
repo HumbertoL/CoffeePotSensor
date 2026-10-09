@@ -38,7 +38,7 @@
 #include "LCD_Driver.h"
 #include "fonts.h"
 #include "Debug.h"
-#include <avr/pgmspace.h>
+#include <Arduino.h>  // PROGMEM / pgm_read_byte on both AVR and ESP32
 /**
  * Image attributes
 **/

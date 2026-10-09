@@ -4,17 +4,25 @@
 #include "GUI_Paint.h"
 #include "Debug.h"
 
+#if defined(ARDUINO_ARCH_ESP32)
+#define POT1_PIN 4  // GPIO numbers on the ESP32-S3-Zero (3.3V inputs only!)
+#define POT2_PIN 5
+#define POT3_PIN 6
+#else
 #define POT1_PIN 2
 #define POT2_PIN 3
 #define POT3_PIN 4
+#endif
 #define REFRESH_INTERVAL 100UL  // ms between sensor polls
 #define STATUS_CHARS 20         // status text is padded to this width so it fully overwrites the previous text
+#define IDLE_RESTART_MS (48UL * 60 * 60 * 1000)  // restart after this long with no pot activity (e.g. over a weekend)
 
 #define COLOR_TEXT 0xC618  // light gray
 #define COLOR_BG 0x18E3    // almost black
 #define STARBUCKS_GREEN 0x07E0
 
 unsigned long lastUpdate = 0;
+unsigned long lastActivity = 0;  // millis() of the last pot placed/removed (or boot)
 
 struct CoffeePot {
   const char* name;
@@ -37,7 +45,27 @@ bool isPotPresent(const CoffeePot& pot) {
   return digitalRead(pot.sensorPin) == LOW;
 }
 
+// Restart the sketch from scratch: globals are re-initialized, millis() starts
+// over at 0, and setup() runs again (which also hardware-resets the LCD).
+// On AVR this jumps to the reset vector instead of using a watchdog reset,
+// because Nanos with the old bootloader get stuck in a reset loop after a
+// watchdog reset.
+void restart() {
+  Serial.println(F("[debug] No pot activity, restarting..."));
+  Serial.flush();
+#if defined(ARDUINO_ARCH_ESP32)
+  ESP.restart();
+#else
+  noInterrupts();
+  asm volatile("jmp 0");
+#endif
+}
+
 void setup() {
+#if defined(ARDUINO_ARCH_ESP32)
+  // Hardware watchdog: reboots the board if loop() ever stops returning (a real hang)
+  enableLoopWDT();
+#endif
   Config_Init();
   LCD_Init();
 
@@ -88,6 +116,9 @@ void formatStatus(const CoffeePot& pot, unsigned long now, char* buffer) {
 
 void updatePotStatus(CoffeePot& pot, unsigned long now) {
   bool present = isPotPresent(pot);
+  if (present != pot.present) {
+    lastActivity = now;
+  }
 
   // Start the timer when a pot is put back
   if (present && !pot.present) {
@@ -123,6 +154,13 @@ void loop() {
   unsigned long now = millis();
   if (!lastUpdate || (now - lastUpdate >= REFRESH_INTERVAL || now < lastUpdate)) {
     lastUpdate = now;
+
+    // Nobody has touched a pot in a long time (a weekend), so start fresh.
+    // Pots still on the burner will show "Unknown" afterwards.
+    if (now - lastActivity >= IDLE_RESTART_MS) {
+      restart();
+    }
+
     for (int i = 0; i < 3; ++i) {
       updatePotStatus(pots[i], now);
       // Start at 50, then increment by 60 for each pot

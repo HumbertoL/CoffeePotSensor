@@ -76,6 +76,8 @@ The pins are configured as plain `INPUT`, with no internal pull-up. If you use a
 
 The timer resets whenever a pot goes from *removed* to *present*. After a power cycle there's no way to know how old a pot already on the burner is, so it shows **Unknown** until it's removed and put back. A pot that's absent at power-on is treated as fresh when it's placed.
 
+If no pot is placed or removed for **48 hours**, which in an office means the weekend, the device restarts itself to clear out any long-running state. Any pot still on the burner shows **Unknown** afterwards.
+
 ---
 
 ## 🛠️ Building & Flashing
@@ -93,31 +95,44 @@ No extra libraries are needed. The Waveshare driver, fonts and drawing code are 
 
 ---
 
-## ⚡ Running on ESP8266 (e.g., Wemos D1 Mini)
+## ⚡ Running on ESP32-S3 (Waveshare ESP32-S3-Zero)
 
-It works and with some performance benefits!
+The same sketch builds for the [Waveshare ESP32-S3-Zero](https://www.waveshare.com/wiki/ESP32-S3-Zero), sold as the "ESP32-S3 Mini Development Board" with the ESP32-S3FH4R2 chip. No code changes are needed. The pins are picked automatically from the board you select.
 
-### Key differences:
+| LCD Pin | ESP32-S3-Zero |
+|---------|---------------|
+| VCC     | 3V3           |
+| GND     | GND           |
+| DIN     | GPIO11        |
+| CLK     | GPIO12        |
+| CS      | GPIO10        |
+| DC      | GPIO9         |
+| RST     | GPIO8         |
+| BL      | GPIO7         |
 
-- You'll need to adjust the pins (D1, D2, etc.) in `DEV_Config.h`
-- You'll need to set the SPI Frequency (around 10-20MHz)
+| Pot    | ESP32-S3-Zero |
+|--------|---------------|
+| Medium | GPIO4         |
+| Dark   | GPIO5         |
+| Decaf  | GPIO6         |
 
-| LCD Pin | Wemos D1 Mini | GPIO   |
-| ------- | ------------- | ------ |
-| VCC     | 3V3           |        |
-| GND     | G             |        |
-| DIN     | D7            | GPIO13 |
-| CLK     | D5            | GPIO14 |
-| CS      | D2            | GPIO4  |
-| DC      | D1            | GPIO5  |
-| RST     | D4            | GPIO2  |
-| BL      | D6 (optional) | GPIO12 |
+> ⚠️ **The ESP32-S3 runs on 3.3V and its pins are not 5V tolerant.** Power the sensors from **3V3**, or make sure their output never goes above 3.3V. Pull-up resistors go to 3V3, not 5V.
 
+**Building:**
+- In the Arduino IDE, select **Tools → Board → esp32 → Waveshare ESP32-S3-Zero**. This needs the esp32 board package, version 3.x.
+- Leave **USB CDC On Boot** set to *Enabled*, its default, so serial output comes over the USB-C port.
+- If the board doesn't show up as a port, hold **BOOT** while plugging it in.
+
+```bash
+arduino-cli compile --fqbn esp32:esp32:waveshare_esp32_s3_zero .
+arduino-cli upload  --fqbn esp32:esp32:waveshare_esp32_s3_zero -p <port> .
+```
 
 **Benefits:**
-- Faster screen refresh
-- More breathing room for fun features
-- Lower power usage
+- The display gets 3.3V logic, so it's in spec and needs no level shifters.
+- A hardware watchdog reboots the board if it ever hangs.
+- The SPI bus runs at 20 MHz, so the screen redraws faster.
+- There's more breathing room for fun features.
 
 ---
 

@@ -36,7 +36,7 @@
 #include <stdio.h>
 #include <SPI.h>
 #include "Debug.h"
-#include <avr/pgmspace.h>
+#include <Arduino.h>  // PROGMEM / pgm_read_byte on both AVR and ESP32
 
 
 
@@ -48,17 +48,24 @@
  * GPIO config
 **/
 
-// Arduino UNO
+#if defined(ARDUINO_ARCH_ESP32)
+// Waveshare ESP32-S3-Zero (GPIO numbers). The core's default SPI pins
+// (GPIO34-37) aren't on the headers, so SPI is routed to GPIO11/12 explicitly.
+#define DEV_CS_PIN   10
+#define DEV_DC_PIN   9
+#define DEV_RST_PIN  8
+#define DEV_BL_PIN   7
+#define DEV_MOSI_PIN 11
+#define DEV_SCK_PIN  12
+#define DEV_SPI_HZ   20000000  // safe for jumper wires; the ST7789 can go faster
+#else
+// Arduino Nano / UNO (MOSI = D11, SCK = D13 are fixed by the hardware SPI)
 #define DEV_CS_PIN  10
 #define DEV_DC_PIN  7
 #define DEV_RST_PIN 8
 #define DEV_BL_PIN  9
-
-// ESP8266
-// #define DEV_CS_PIN   D2 // D8  // or use GPIO15 directly
-// #define DEV_DC_PIN   D1 // D3
-// #define DEV_RST_PIN  D4
-// #define DEV_BL_PIN   D6  // optional
+#define DEV_SPI_HZ  8000000  // F_CPU / 2, the fastest the Nano can do
+#endif
 
 
 /**

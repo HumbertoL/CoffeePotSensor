@@ -50,12 +50,11 @@ void GPIO_Init()
   Serial.println("\n[BOOT] Starting CoffeePot Monitor...");
   
   //spi
-  SPI.setDataMode(SPI_MODE3);
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setClockDivider(SPI_CLOCK_DIV2);
+#if defined(ARDUINO_ARCH_ESP32)
+  SPI.begin(DEV_SCK_PIN, -1, DEV_MOSI_PIN, DEV_CS_PIN);  // no MISO: the LCD is write-only
+#else
   SPI.begin();
-
-  // ESP 8266
-  // 10000000 = 10MHz
-  //SPI.setFrequency(20000000); 
+#endif
+  // The LCD is the only SPI device, so this transaction is never ended
+  SPI.beginTransaction(SPISettings(DEV_SPI_HZ, MSBFIRST, SPI_MODE3));
   }
