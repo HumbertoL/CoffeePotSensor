@@ -74,7 +74,7 @@ Each sensor must pull its pin **LOW when a pot is on the burner** and HIGH when 
 
 The pins are configured as plain `INPUT`, with no internal pull-up. If you use a bare switch, either add an external pull-up resistor (about 10 kΩ to 5V) or change `pinMode` to `INPUT_PULLUP` in `CoffeePotSensor.ino`.
 
-The timer resets whenever a pot goes from *removed* to *present*. A pot that is already present at power-on is timed from boot.
+The timer resets whenever a pot goes from *removed* to *present*. After a power cycle there's no way to know how old a pot already on the burner is, so it shows **Unknown** until it's removed and put back. A pot that's absent at power-on is treated as fresh when it's placed.
 
 ---
 

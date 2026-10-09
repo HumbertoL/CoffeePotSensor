@@ -8,6 +8,7 @@
 #define POT2_PIN 3
 #define POT3_PIN 4
 #define REFRESH_INTERVAL 100UL  // ms between sensor polls
+#define STATUS_CHARS 20         // status text is padded to this width so it fully overwrites the previous text
 
 #define COLOR_TEXT 0xC618  // light gray
 #define COLOR_BG 0x18E3    // almost black
@@ -19,17 +20,22 @@ struct CoffeePot {
   const char* name;
   int sensorPin;
   bool present;
+  bool timeKnown;  // false until the pot has been placed while we were watching
   unsigned long placedAt;
-  int lastElapsedSeconds;
+  char shown[STATUS_CHARS + 1];  // status text currently on screen
   bool nameDrawn;  // true if name has been drawn
 };
 
 CoffeePot pots[3] = {
-  { "Medium", POT1_PIN, false, 0, -1, false },
-  { "Dark", POT2_PIN, false, 0, -1, false },
-  { "Decaf", POT3_PIN, false, 0, -1, false }
+  { "Medium", POT1_PIN, false, false, 0, "", false },
+  { "Dark", POT2_PIN, false, false, 0, "", false },
+  { "Decaf", POT3_PIN, false, false, 0, "", false }
 };
 
+
+bool isPotPresent(const CoffeePot& pot) {
+  return digitalRead(pot.sensorPin) == LOW;
+}
 
 void setup() {
   Config_Init();
@@ -45,6 +51,12 @@ void setup() {
   pinMode(POT2_PIN, INPUT);
   pinMode(POT3_PIN, INPUT);
 
+  // A pot already on the burner at power-on has an unknown age. Recording it as
+  // present means the timer only starts once it's removed and put back.
+  for (int i = 0; i < 3; ++i) {
+    pots[i].present = isPotPresent(pots[i]);
+  }
+
   Serial.println("\n[debug] Writting text...");
   Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, COLOR_BG, COLOR_TEXT);
   Serial.println("\n[debug] Text written.");
@@ -52,35 +64,40 @@ void setup() {
   //   Paint_DrawImage(0, 0);  // Initial draw
 }
 
-String formatElapsedTime(unsigned long seconds) {
-  if (seconds < 60) {
-    char buffer[32];
-    sprintf(buffer, "Last brew: %02d sec", seconds);
-    return String(buffer);
+void formatStatus(const CoffeePot& pot, unsigned long now, char* buffer) {
+  if (!pot.present) {
+    strcpy(buffer, "Removed");
+  } else if (!pot.timeKnown) {
+    strcpy(buffer, "Last brew: Unknown");
   } else {
-    int hours = seconds / 3600;
-    int minutes = (seconds % 3600) / 60;
-    char buffer[32];
-    sprintf(buffer, "Last brew: %02dh %02dm", hours, minutes);
-    return String(buffer);
+    unsigned long seconds = (now - pot.placedAt) / 1000;
+    if (seconds < 60) {
+      snprintf(buffer, STATUS_CHARS + 1, "Last brew: %02d sec", (int)seconds);
+    } else {
+      unsigned long hours = seconds / 3600;
+      int minutes = (seconds % 3600) / 60;
+      snprintf(buffer, STATUS_CHARS + 1, "Last brew: %02luh %02dm", hours, minutes);
+    }
   }
+
+  // Pad with spaces so shorter text covers whatever was drawn before
+  size_t len = strlen(buffer);
+  memset(buffer + len, ' ', STATUS_CHARS - len);
+  buffer[STATUS_CHARS] = '\0';
 }
 
 void updatePotStatus(CoffeePot& pot, unsigned long now) {
-  bool present = digitalRead(pot.sensorPin) == LOW;
+  bool present = isPotPresent(pot);
 
-  // Update state if pot status has changed
+  // Start the timer when a pot is put back
   if (present && !pot.present) {
-    pot.present = true;
     pot.placedAt = now;
-  } else if (!present && pot.present) {
-    pot.present = false;
+    pot.timeKnown = true;
   }
+  pot.present = present;
 }
 
-void drawPotStatus(CoffeePot& pot, int yOffset) {
-  char buffer[64];
-
+void drawPotStatus(CoffeePot& pot, int yOffset, unsigned long now) {
   // Draw pot name in green only once
   if (!pot.nameDrawn) {
     // LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
@@ -92,21 +109,12 @@ void drawPotStatus(CoffeePot& pot, int yOffset) {
     pot.nameDrawn = true;
   }
 
-  // Only update timer line if present and time changed
-  if (pot.present) {
-    unsigned long elapsed = (millis() - pot.placedAt) / 1000;
-    if (elapsed != pot.lastElapsedSeconds) {
-      String timeStr = formatElapsedTime(elapsed);
-
-      // LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
-      Paint_DrawString_EN(15, yOffset + 25, timeStr.c_str(), &Font20, COLOR_BG, COLOR_TEXT);
-      pot.lastElapsedSeconds = elapsed;
-    }
-  } else {
-    //   LCD_ClearWindow(10, yOffset + 25, LCD_WIDTH - 10, yOffset + 50, COLOR_BG);
-    sprintf(buffer, "Removed           ");
-    Paint_DrawString_EN(15, yOffset + 25, buffer, &Font20, COLOR_BG, COLOR_TEXT);
-    pot.lastElapsedSeconds = -1;
+  // Only redraw the status line when its text changes
+  char status[STATUS_CHARS + 1];
+  formatStatus(pot, now, status);
+  if (strcmp(status, pot.shown) != 0) {
+    Paint_DrawString_EN(15, yOffset + 25, status, &Font20, COLOR_BG, COLOR_TEXT);
+    strcpy(pot.shown, status);
   }
 }
 
@@ -119,7 +127,7 @@ void loop() {
       updatePotStatus(pots[i], now);
       // Start at 50, then increment by 60 for each pot
       int yOffset = 50 + (i * 60);
-      drawPotStatus(pots[i], yOffset);
+      drawPotStatus(pots[i], yOffset, now);
     }
   }
 }

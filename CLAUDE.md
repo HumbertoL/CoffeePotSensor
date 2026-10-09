@@ -37,23 +37,24 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
 
 - Each pot has a digital sensor on **D2/D3/D4**. The pin is **active LOW**, so LOW means a pot is present. The pins use `INPUT` with no internal pull-up.
 - `loop()` runs every `REFRESH_INTERVAL` ms (100 ms). For each pot it does two things:
-  - `updatePotStatus`: on a removed→present edge, it resets `placedAt = millis()`.
-  - `drawPotStatus`: it redraws the time line only when the elapsed seconds change.
-- A pot that is present at boot counts from boot.
+  - `updatePotStatus`: on a removed→present edge, it sets `placedAt = now` and `timeKnown = true`.
+  - `drawPotStatus`: `formatStatus` builds the status text, padded to `STATUS_CHARS` (20) characters. The line is redrawn only when that text differs from `pot.shown`, which is what's currently on screen.
+- At power-on, `setup()` records which pots are already present. Those pots show `Last brew: Unknown` until they are removed and put back. A pot that is absent at boot shows `Removed`, and its timer starts when it is placed.
+- Elapsed time uses unsigned `now - placedAt`, so it stays correct across the 49.7-day `millis()` rollover. The only limit is a single pot sitting for more than 49.7 days.
 - Screen layout: title at y=12 (Font24). Pot rows start at y=50 and are 60 px apart. Each row has the name (Font20, green) at `y`, the status at `y+25`, and a divider at `y+53`.
 - Colors are **RGB565** (`COLOR_BG 0x18E3`, `COLOR_TEXT 0xC618`, `STARBUCKS_GREEN 0x07E0`).
 
 ## Constraints and gotchas
 
 - **There is no framebuffer.** `Paint_NewImage` only stores dimensions. Every `Paint_*` call writes pixels directly to the LCD over SPI: `Paint_SetPixel` → `LCD_DrawPaint`, one pixel at a time. This is slow on the Nano, so redraw only what changed.
-- **Erase by overdrawing.** Text is drawn with an explicit background color, which repaints every glyph cell. Updates overwrite old text in place instead of clearing first. That's why `"Removed           "` is padded with spaces: it has to cover the longer `"Last brew: …"` string. Clearing with `LCD_ClearWindow` causes visible flicker, which is why those calls are commented out.
+- **Erase by overdrawing.** Text is drawn with an explicit background color, which repaints every glyph cell. Updates overwrite old text in place instead of clearing first. That's why `formatStatus` pads every status to a fixed width with spaces. At 20 chars × 14 px from x=15, the line ends at x=295, inside the 320 px screen. Clearing with `LCD_ClearWindow` causes visible flicker, which is why those calls are commented out.
   - Passing `FONT_BACKGROUND` (WHITE) as the background switches to transparent mode. In that mode old text is not erased.
 - **2 KB of SRAM.**
   - Put constant data in PROGMEM and read it with `pgm_read_byte`.
-  - Prefer `char` buffers over `String`. `formatElapsedTime` currently returns `String`.
+  - Use `char` buffers, not `String`. The sketch doesn't use the heap at all.
   - Use `F("...")` for Serial literals.
   - Avoid large stack buffers.
-- **On AVR, `int` is 16 bits.** `formatElapsedTime` passes an `unsigned long` to `%02d`. This only prints correctly because of AVR's little-endian varargs layout. Cast to `int` or use `%lu` if you touch it.
+- **On AVR, `int` is 16 bits and `long` is 32 bits.** `sprintf` arguments must match the format exactly: `%d` takes an `int`, and `%ld`/`%lu` take a `long`/`unsigned long`. Cast where needed (see `formatStatus`). Never store `millis()`-derived values in an `int`, because it overflows after 32,767. AVR `sprintf` doesn't support `%f`.
 - **Text width.** Font20 is 14 px wide, so a line starting at x=15 fits about 21 characters. `Paint_DrawString_EN` wraps silently when a line is too long.
 - **`millis()` arithmetic** uses unsigned subtraction, so it handles rollover. Keep it that way.
 - **5 V logic on the Nano** drives a 3.3 V display (out of spec, but it works). Pins already in use: D7 DC, D8 RST, D9 BL (PWM), D10 CS, D11 MOSI, D13 SCK, D2–D4 sensors. Free: D5, D6, D12, A0–A7.
