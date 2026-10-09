@@ -15,6 +15,8 @@
 #endif
 #define REFRESH_INTERVAL 100UL  // ms between sensor polls
 #define STATUS_CHARS 20         // status text is padded to this width so it fully overwrites the previous text
+#define PLACE_DEBOUNCE_MS 1000UL   // sensor must read "present" this long before a pot counts as placed
+#define REMOVE_DEBOUNCE_MS 3000UL  // ...or "absent" this long before it counts as removed (ignores IR flicker)
 #define IDLE_RESTART_MS (48UL * 60 * 60 * 1000)  // restart after this long with no pot activity (e.g. over a weekend)
 
 #define COLOR_TEXT 0xC618  // light gray
@@ -27,7 +29,9 @@ unsigned long lastActivity = 0;  // millis() of the last pot placed/removed (or 
 struct CoffeePot {
   const char* name;
   int sensorPin;
-  bool present;
+  bool present;               // debounced state
+  bool rawPresent;            // latest sensor reading
+  unsigned long rawChangedAt; // millis() when rawPresent last changed
   bool timeKnown;  // false until the pot has been placed while we were watching
   unsigned long placedAt;
   char shown[STATUS_CHARS + 1];  // status text currently on screen
@@ -35,9 +39,9 @@ struct CoffeePot {
 };
 
 CoffeePot pots[3] = {
-  { "Medium", POT1_PIN, false, false, 0, "", false },
-  { "Dark", POT2_PIN, false, false, 0, "", false },
-  { "Decaf", POT3_PIN, false, false, 0, "", false }
+  { "Medium", POT1_PIN, false, false, 0, false, 0, "", false },
+  { "Dark", POT2_PIN, false, false, 0, false, 0, "", false },
+  { "Decaf", POT3_PIN, false, false, 0, false, 0, "", false }
 };
 
 
@@ -82,7 +86,7 @@ void setup() {
   // A pot already on the burner at power-on has an unknown age. Recording it as
   // present means the timer only starts once it's removed and put back.
   for (int i = 0; i < 3; ++i) {
-    pots[i].present = isPotPresent(pots[i]);
+    pots[i].present = pots[i].rawPresent = isPotPresent(pots[i]);
   }
 
   Serial.println("\n[debug] Writting text...");
@@ -115,17 +119,28 @@ void formatStatus(const CoffeePot& pot, unsigned long now, char* buffer) {
 }
 
 void updatePotStatus(CoffeePot& pot, unsigned long now) {
-  bool present = isPotPresent(pot);
-  if (present != pot.present) {
-    lastActivity = now;
+  bool raw = isPotPresent(pot);
+  if (raw != pot.rawPresent) {
+    pot.rawPresent = raw;
+    pot.rawChangedAt = now;
   }
 
-  // Start the timer when a pot is put back
-  if (present && !pot.present) {
-    pot.placedAt = now;
+  // Only accept a change once the reading has held steady long enough
+  if (raw == pot.present) {
+    return;
+  }
+  unsigned long debounce = raw ? PLACE_DEBOUNCE_MS : REMOVE_DEBOUNCE_MS;
+  if (now - pot.rawChangedAt < debounce) {
+    return;
+  }
+
+  lastActivity = now;
+  if (raw) {
+    // Start the timer from when the pot actually arrived, not when the debounce finished
+    pot.placedAt = pot.rawChangedAt;
     pot.timeKnown = true;
   }
-  pot.present = present;
+  pot.present = raw;
 }
 
 void drawPotStatus(CoffeePot& pot, int yOffset, unsigned long now) {

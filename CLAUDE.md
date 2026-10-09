@@ -4,7 +4,7 @@ Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots ha
 - **Arduino Nano** (ATmega328P, 2 KB SRAM, 32 KB flash). This is the original target and the tightest constraint.
 - **Waveshare ESP32-S3-Zero** (ESP32-S3FH4R2, 3.3 V). This is the planned replacement.
 
-ESP8266 is no longer supported. See [README.md](README.md) for hardware and wiring.
+ESP8266 is no longer supported. See [README.md](README.md) for wiring. See [docs/HARDWARE.md](docs/HARDWARE.md) for part specs, sensor behavior, the physical setup (wall-mounted behind the pots), and the planned sensor-rod redesign. Keep that file up to date when hardware facts change. Planned ideas (ToF sensors, OTA updates) are tracked in [docs/FUTURE_WORK.md](docs/FUTURE_WORK.md).
 
 ## Build / flash
 
@@ -42,9 +42,11 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
 
 ## How it works
 
-- Each pot has a digital sensor on **D2/D3/D4**. The pin is **active LOW**, so LOW means a pot is present. The pins use `INPUT` with no internal pull-up.
+- Each pot has an **IR reflection sensor module** (FC-51/TCRT5000 style, LM393 comparator with an onboard pull-up and a sensitivity screw). They connect to **D2/D3/D4** on the Nano and **GPIO4/5/6** on the ESP32-S3-Zero. The pin is **active LOW**, so LOW means a pot is present. The pins use `INPUT` with no internal pull-up.
 - `loop()` runs every `REFRESH_INTERVAL` ms (100 ms). For each pot it does two things:
-  - `updatePotStatus`: on a removed→present edge, it sets `placedAt = now` and `timeKnown = true`.
+  - `updatePotStatus` debounces the sensor. A new reading must hold for `PLACE_DEBOUNCE_MS` (1 s) before a pot counts as placed, or `REMOVE_DEBOUNCE_MS` (3 s) before it counts as removed. Brief IR flickers, like a hand passing or steam, are ignored and don't reset the timer.
+    - On a confirmed placement it sets `timeKnown = true` and `placedAt = rawChangedAt`, the moment the reading first changed rather than when the debounce finished.
+    - `present` is the debounced state; `rawPresent` is the latest reading.
   - `drawPotStatus`: `formatStatus` builds the status text, padded to `STATUS_CHARS` (20) characters. The line is redrawn only when that text differs from `pot.shown`, which is what's currently on screen.
 - At power-on, `setup()` records which pots are already present. Those pots show `Last brew: Unknown` until they are removed and put back. A pot that is absent at boot shows `Removed`, and its timer starts when it is placed.
 - **Idle restart.** If no pot is placed or removed for `IDLE_RESTART_MS` (48 h), `restart()` restarts the sketch. In an office this happens over the weekend. Any present/removed edge on any pot updates `lastActivity`, and boot counts as activity.

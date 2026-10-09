@@ -34,14 +34,17 @@ But does it work? *Debatable.*
 
 ## 🧠 Hardware
 
-- **Microcontroller**: Arduino Nano  
-  - 32 KB flash, 2 KB SRAM, 16 MHz ATmega328P
+- **Microcontroller**: Arduino Nano, with the Waveshare ESP32-S3-Zero as its replacement
+  - Nano: 32 KB flash, 2 KB SRAM, 16 MHz ATmega328P
+- **Sensors**: 3× IR reflection (obstacle) modules, active LOW
 - **Display**: Waveshare 2-inch Mini LCD Screen  
   - 240x320 Resolution IPS LCD  
   - 262K RGB color  
   - SPI interface  
   - Driver: **ST7789VW**  
   - [Product Link](https://www.waveshare.com/wiki/2inch-LCD-Module)
+
+See [docs/HARDWARE.md](docs/HARDWARE.md) for full part details, sensor notes, power and the planned sensor-rod redesign. Ideas on the roadmap are in [docs/FUTURE_WORK.md](docs/FUTURE_WORK.md).
 
 ---
 
