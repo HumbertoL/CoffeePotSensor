@@ -95,7 +95,8 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
   - Bodies print back-down and covers print face-down (`face_down` rotates, never mirrors). No supports.
   - Boards are held by posts, ledges and pockets plus the cover, not screws.
   - Boards and wires are drawn only under `$preview && SHOW_PARTS`.
-- **Checks to rerun after changing it:**
+- **Status and next steps** are at the top of `case/v2/README.md`. Fit settings are tuned from the user's test prints and recorded under "Test print results" there.
+- **Checks to rerun after changing it.** The tools are in `case/tools/`: `overhang.py`, `compare.py` and `stlinfo_lib.py`.
   - Overlaps between case parts and boards. Only the pins and the crush ribs should overlap.
   - Downward-facing surfaces above the bed on each exported part.
   - Bed fit (250 × 210 mm).

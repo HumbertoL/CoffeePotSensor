@@ -36,6 +36,23 @@ The preview draws every wire along this route. See the wiring renders below.
 - **Boards:** no screws. Each board is held by a post, pocket or ledge in the body, and the cover clamps it.
 - **Screen height:** `screen_h` sets the distance from the center sensor's LEDs to the bottom of the visible image. It defaults to 12.5 in (317.5 mm). Changing it only changes the mast pieces and their strips.
 
+## Status and next steps (as of 2026-10-12)
+
+| Item | Status |
+|---|---|
+| Sensor placement (`sensor_test`) | **Done.** The holes line up with the LEDs and the sensitivity screw, and the post's pin holds the board |
+| Cover fit (`cover_clr` 0.1, `rib` 0.35, `rib_pitch` 20) | **Confirmed:** snug friction fit. This also applies to the head cover and the mast strips |
+| Mast strip fit | **Fine** in the first `joint_test` |
+| Dovetails (`dt_clr`, `dt_rib`) | Loose in the first `joint_test`. Tightened to 0.05 + ribs; **the user is reprinting `joint_test`** |
+| Mast socket (`sock_clr`) | Loose in the first `joint_test`. Tightened to 0.1; **in the same reprint** |
+| Detection through the 3 mm LED hood | **Not checked yet.** Wire up the sensor test piece and try it with a pot (`hood` can be shortened) |
+| Head (window, ESP32 supports, Porcupine fences, LCD pins), spider board holder | Not printed yet. All low-risk; print the real parts |
+
+**Next:**
+1. Get the `joint_test` reprint results and adjust `dt_rib` / `sock_clr` if needed.
+2. Print the full set (12 parts). They fit on one MK4S plate, as `stl/plate_layout.scad` shows, or can be split into a bar batch and a mast + head batch.
+3. Assemble, then tune anything left from the open questions below.
+
 ## Parts and printing
 
 PLA, 0.2 mm layers. **No supports.** Every part builds straight up from the bed. The only holes through vertical walls are open-topped notches or 45° gables. This has been checked: no exported part has a downward-facing surface above the bed. Everything fits the MK4S bed; the largest part is the center bar segment at 186 mm.
@@ -136,7 +153,8 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 | `hood` | 3 | How far the LED tips sit behind the front face. The bores act as hoods against side reflections |
 | `clr` | 0.3 | General clearance per side |
 | `cover_clr`, `rib`, `rib_pitch` | 0.1, 0.35, 20 | Cover fit: the gap between the lip and the body, how far the crush ribs stand out, and their spacing. Too tight: lower `rib`. Too loose: raise it, or lower `rib_pitch` |
-| `dt_clr` | 0.15 | Dovetail clearance per side |
+| `dt_clr`, `dt_rib` | 0.05, 0.15 | Dovetail clearance per side, and the crush rib on each slanted side of a tab (0.1 mm interference) |
+| `sock_clr` | 0.1 | Mast to socket cheek, per side. The cheeks' ribs grip with 0.25 mm interference |
 | `lcd_post_gap` | 0 | Raise it if the head cover won't close over the LCD |
 | `win_margin` | 0.6 | Screen window margin around the lit image |
 | `lcd_img_dx` | 1.7 | How far right of the PCB's center the lit image sits |
@@ -167,7 +185,13 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 **`sensor_test`, first print (0.2 mm gap, 0.3 mm ribs every ~45 mm):**
 - **Worked:** the holes line up with the LEDs and the sensitivity screw, and the post's pin holds the board.
 - **Too loose:** the cover slid around. The test piece had only one rib per side because of the 45 mm spacing.
-- **Fix:** `cover_clr` 0.2 → 0.1, `rib` 0.3 → 0.35 (0.25 mm interference), and a rib every 20 mm (`rib_pitch`) on every edge, including the head's ends. Reprint `sensor_test` to check.
+- **Fix:** `cover_clr` 0.2 → 0.1, `rib` 0.3 → 0.35 (0.25 mm interference), and a rib every 20 mm (`rib_pitch`) on every edge, including the head's ends.
+
+**`sensor_test`, second print (0.1 mm gap, 0.35 mm ribs every 20 mm):** a nice, snug friction fit. These cover-fit settings are confirmed.
+
+**`joint_test`, first print:**
+- **Result:** both dovetails were loose (`dt_clr` 0.15, no ribs), and the mast was loose in its socket (0.3 mm clearance, so the ribs barely touched).
+- **Fix:** `dt_clr` 0.05 plus a crush rib on each slanted side of every tab (`dt_rib` 0.15), and a separate socket clearance `sock_clr` 0.1. Reprint `joint_test` to check.
 - **Alignment:** the cover and body should line up end to end. The test piece has no lip at its cut ends, so a loose cover can slide lengthwise. The full bar's end segments have lips at their outer ends.
 
 ## Open questions for the first prints

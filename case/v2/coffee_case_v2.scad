@@ -84,10 +84,12 @@ mast_back  = 2;
 mast_body_d = 12;  // back + channel; the strip adds `plate` in front
 cheek_t    = 3;    // sockets on the bar's top and the head's bottom
 cheek_h    = 12;
+sock_clr   = 0.1;  // mast to socket cheek, per side (0.3 printed loose); the cheeks' crush ribs grip it
 strip_over = 30;   // the strips split this far above the mast joint, tying the two pieces together
 
 /* ---------- Dovetails in the back walls (bar segments and mast pieces) ---------- */
-dt_clr  = 0.15;            // clearance per side
+dt_clr  = 0.05;            // clearance per side (0.15 printed loose)
+dt_rib  = 0.15;            // crush rib on each slanted side of a tab (0.1 mm interference)
 bar_dt  = [8, 12, 6];      // root width, tip width, length
 mast_dt = [6, 9, 5];
 
@@ -253,6 +255,17 @@ module cover_lip(x0, x1, h, top, cl, cr) {
 module dovetail_2d(a, b, L, grow = 0) offset(delta = grow)
   polygon([[0, -a / 2], [L, -b / 2], [L, b / 2], [0, a / 2]]);
 
+// Dovetail tab of height h, with a crush rib on each slanted side
+module dovetail_tab(a, b, L, h) {
+  linear_extrude(h) dovetail_2d(a, b, L + 0.01);
+  d = [L, (b - a) / 2];                     // upper slanted side, from root to tip
+  n = [-d[1], d[0]] / norm(d);              // its outward normal
+  for (sy = [-1, 1]) {
+    c = [L / 2, sy * (a + b) / 4] + [n[0], sy * n[1]] * (dt_rib - 0.5);
+    translate([c[0], c[1], 0]) cylinder(r = 0.5, h = h - 0.4, $fn = 12);
+  }
+}
+
 module at_sensor(i) translate([sx[i], y_s, 0]) rotate([0, 0, sensor_flip[i] ? 180 : 0]) children();
 
 /* =================================================================== */
@@ -291,15 +304,15 @@ module bar_body(i) {
   // Dovetail tabs on the center segment's back wall
   if (i == 1) for (s = [-1, 1])
     translate([s * joint, bar_h / 2, 0]) rotate([0, 0, s > 0 ? 0 : 180])
-      translate([-0.01, 0, 0]) linear_extrude(wall) dovetail_2d(bar_dt[0], bar_dt[1], bar_dt[2] + 0.01);
+      translate([-0.01, 0, 0]) dovetail_tab(bar_dt[0], bar_dt[1], bar_dt[2], wall);
 
   if (i == 1) {
     // Socket cheeks for the mast
     for (s = [-1, 1]) {
-      x = s > 0 ? mast_w / 2 + clr : -(mast_w / 2 + clr + cheek_t);
+      x = s > 0 ? mast_w / 2 + sock_clr : -(mast_w / 2 + sock_clr + cheek_t);
       translate([x, bar_h - 0.01, 0]) cube([cheek_t, cheek_h, mast_d]);
       for (y = [bar_h + cheek_h * 0.3, bar_h + cheek_h * 0.7])
-        rib_z(s * (mast_w / 2 + clr), y, 0, mast_d - 0.6, [-s, 0]);
+        rib_z(s * (mast_w / 2 + sock_clr), y, 0, mast_d - 0.6, [-s, 0]);
     }
   }
 }
@@ -351,7 +364,7 @@ module mast_piece(y0, y1, tab_below, notch_above) {
       linear_extrude(mast_back + 2) dovetail_2d(mast_dt[0], mast_dt[1], mast_dt[2] + dt_clr + 0.01, dt_clr);
   }
   if (tab_below) translate([0, y0 + 0.01, 0]) rotate([0, 0, -90])
-    linear_extrude(mast_back) dovetail_2d(mast_dt[0], mast_dt[1], mast_dt[2] + 0.01);
+    dovetail_tab(mast_dt[0], mast_dt[1], mast_dt[2], mast_back);
 }
 
 module mast_strip(y0, y1) {
@@ -415,10 +428,10 @@ module head_body() {
 
   // Socket cheeks for the mast, under the head
   for (s = [-1, 1]) {
-    x = head_w / 2 + (s > 0 ? mast_w / 2 + clr : -(mast_w / 2 + clr + cheek_t));
+    x = head_w / 2 + (s > 0 ? mast_w / 2 + sock_clr : -(mast_w / 2 + sock_clr + cheek_t));
     translate([x, -cheek_h, 0]) cube([cheek_t, cheek_h + 0.01, mast_d]);
     for (y = [-cheek_h * 0.3, -cheek_h * 0.7])
-      rib_z(head_w / 2 + s * (mast_w / 2 + clr), y, 0, mast_d - 0.6, [-s, 0]);
+      rib_z(head_w / 2 + s * (mast_w / 2 + sock_clr), y, 0, mast_d - 0.6, [-s, 0]);
   }
 }
 
