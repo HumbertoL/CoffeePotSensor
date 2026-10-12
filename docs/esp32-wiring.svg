@@ -3,7 +3,7 @@
   <rect width="1000" height="800" fill="#ffffff"/>
 
   <text x="40" y="44" font-size="22" font-weight="bold" fill="#111">ESP32-S3-Zero test wiring (replacing the Nano)</text>
-  <text x="40" y="70" font-size="14" fill="#444">Board shown face up, USB-C on the right, as in the photo. All existing wires are reused; only their ends move.</text>
+  <text x="40" y="70" font-size="14" fill="#444">Board shown face up, USB-C on the right, as in the photo. All existing wires are reused; only their ends move. Each rail has 6 pins (3 spare).</text>
 
   <!-- ===== Wires (drawn first so boxes and pads sit on top) ===== -->
   <g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
@@ -41,14 +41,14 @@
   <!-- ===== Power splices ===== -->
   <g font-size="14" fill="#111">
     <rect x="760" y="112" width="210" height="76" rx="6" fill="#fdecec" stroke="#d62828" stroke-width="2"/>
-    <text x="772" y="133" font-weight="bold">3V3 splice</text>
+    <text x="772" y="133" font-weight="bold">3V3 rail · power board</text>
     <circle cx="778" cy="151" r="6" fill="#d62828"/>
     <text x="790" y="156">red (ribbon) → LCD VCC</text>
     <circle cx="778" cy="173" r="6" fill="#fff" stroke="#999" stroke-width="2"/>
     <text x="790" y="178">white → sensor VCC</text>
 
     <rect x="760" y="200" width="210" height="76" rx="6" fill="#f0f0f0" stroke="#222" stroke-width="2"/>
-    <text x="772" y="221" font-weight="bold">GND splice</text>
+    <text x="772" y="221" font-weight="bold">GND rail · power board</text>
     <circle cx="778" cy="239" r="6" fill="#8b5a2b"/>
     <text x="790" y="244">brown (ribbon) → LCD GND</text>
     <circle cx="778" cy="261" r="6" fill="#222"/>
@@ -100,7 +100,7 @@
     <text x="465" y="640">green</text><text x="500" y="640">orange</text><text x="535" y="640">yellow</text>
     <text x="600" y="640">red</text><text x="650" y="640">brown</text>
     <text x="600" y="656">→ 3V3</text><text x="650" y="656">→ GND</text>
-    <text x="600" y="670">splice</text><text x="650" y="670">splice</text>
+    <text x="600" y="670">rail</text><text x="650" y="670">rail</text>
   </g>
   <text x="345" y="692" font-size="13" fill="#111">Waveshare 2" LCD · ribbon stays plugged into the display</text>
 

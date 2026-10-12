@@ -88,9 +88,9 @@ This test reuses every wire from the current Nano build (see the next section) a
 - **Display:** the ribbon stays plugged into the LCD.
 - **Sensor signals:** the three single wires move to GP4–6.
 - **Power:**
-  - The board has only one 3V3 pin and one GND pin.
-  - Each one feeds a splice connector, and everything that needs power branches off a splice.
-  - The white sensor wire moves from the Nano's 5V to **3V3**.
+  - The board has only one 3V3 pin and one GND pin, so power goes through the **power distribution board** (below).
+  - One female-to-female jumper runs from each ESP32 power pin to its rail, and everything that needs power plugs into the rail.
+  - The white sensor wire moves from the Nano's 5V to the **3V3 rail**.
 
 **Steps**
 1. Solder the two 9-pin headers, with the pins pointing away from the BOOT/RESET buttons.
@@ -108,6 +108,26 @@ This test reuses every wire from the current Nano build (see the next section) a
 7. If detection got worse, re-tune each sensor's sensitivity screw. They have a shorter range at 3.3 V.
 
 Expected draw on 3V3 is roughly 100–150 mA (backlight plus three sensors), well within the regulator's rating.
+
+### Power distribution board
+
+This is a small helper board that turns the ESP32's single 3V3 pin and single GND pin into two 6-pin rails.
+- **Construction:** a spare piece of prototype board, about 15 × 20 mm, with two mounting holes.
+- **Pins:** two rows of 6 male header pins on the top side.
+- **Rails:** on the bottom, each row is soldered together into one rail, 3V3 or GND. All the wires already end in Dupont female housings, so nothing has to be cut.
+
+| Rail | Pin 1 | Pin 2 | Pin 3 | Pins 4–6 |
+|---|---|---|---|---|
+| 3V3 | jumper from the ESP32's 3V3 | red (LCD VCC) | white (sensor VCC, via the existing lever connector) | spare |
+| GND | jumper from the ESP32's GND | brown (LCD GND) | black (sensor GND, via the existing lever connector) | spare |
+
+The spare pins fit each sensor's own VCC and GND, if the sensors are later taken off the lever connectors.
+
+**Before first power-up:**
+- Check with a multimeter that each rail is continuous across all 6 pins, and that the two rails aren't connected to each other.
+- Mark the 3V3 rail. Swapping the rails would power the sensors and the LCD backwards.
+
+**Future case work:** the case has no mount for this board yet. The redesigned brain box should include one.
 
 ## Current Nano build: wire colors
 
