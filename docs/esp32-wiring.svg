@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" width="1000" height="800" font-family="Helvetica, Arial, sans-serif">
+  <title>ESP32-S3-Zero test wiring (replacing the Nano)</title>
+  <rect width="1000" height="800" fill="#ffffff"/>
+
+  <text x="40" y="44" font-size="22" font-weight="bold" fill="#111">ESP32-S3-Zero test wiring (replacing the Nano)</text>
+  <text x="40" y="70" font-size="14" fill="#444">Board shown face up, USB-C on the right, as in the photo. All existing wires are reused; only their ends move.</text>
+
+  <!-- ===== Wires (drawn first so boxes and pads sit on top) ===== -->
+  <g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Sensors: top pads 4, 5, 6 -->
+    <polyline points="430,310 430,150 250,150" stroke="#1f5fd6"/>
+    <polyline points="395,310 395,210 250,210" stroke="#e0b000"/>
+    <polyline points="360,310 360,270 250,270" stroke="#0aa6a0"/>
+    <!-- Power: 3V3 and GND -->
+    <polyline points="570,310 570,150 760,150" stroke="#d62828"/>
+    <polyline points="605,310 605,232 760,232" stroke="#222"/>
+    <!-- LCD: bottom pads 7..12 -->
+    <line x1="360" y1="430" x2="360" y2="600" stroke="#888"/>
+    <line x1="395" y1="430" x2="395" y2="600" stroke="#1f5fd6"/>
+    <line x1="430" y1="430" x2="430" y2="600" stroke="#7b3fb5"/>
+    <line x1="465" y1="430" x2="465" y2="600" stroke="#2e9e44"/>
+    <line x1="500" y1="430" x2="500" y2="600" stroke="#f08020"/>
+    <line x1="535" y1="430" x2="535" y2="600" stroke="#e0b000"/>
+  </g>
+
+  <!-- ===== Sensors ===== -->
+  <g font-size="14" fill="#111">
+    <rect x="40" y="126" width="210" height="48" rx="6" fill="#eef3fb" stroke="#1f5fd6" stroke-width="2"/>
+    <text x="52" y="146" font-weight="bold">Medium sensor · left box</text>
+    <text x="52" y="164">OUT ← blue (single wire)</text>
+
+    <rect x="40" y="186" width="210" height="48" rx="6" fill="#fdf8e6" stroke="#e0b000" stroke-width="2"/>
+    <text x="52" y="206" font-weight="bold">Dark sensor · center</text>
+    <text x="52" y="224">OUT ← yellow (single wire)</text>
+
+    <rect x="40" y="246" width="210" height="48" rx="6" fill="#e8f7f6" stroke="#0aa6a0" stroke-width="2"/>
+    <text x="52" y="266" font-weight="bold">Decaf sensor · right box</text>
+    <text x="52" y="284">OUT ← teal (single wire)</text>
+  </g>
+
+  <!-- ===== Power splices ===== -->
+  <g font-size="14" fill="#111">
+    <rect x="760" y="112" width="210" height="76" rx="6" fill="#fdecec" stroke="#d62828" stroke-width="2"/>
+    <text x="772" y="133" font-weight="bold">3V3 splice</text>
+    <circle cx="778" cy="151" r="6" fill="#d62828"/>
+    <text x="790" y="156">red (ribbon) → LCD VCC</text>
+    <circle cx="778" cy="173" r="6" fill="#fff" stroke="#999" stroke-width="2"/>
+    <text x="790" y="178">white → sensor VCC</text>
+
+    <rect x="760" y="200" width="210" height="76" rx="6" fill="#f0f0f0" stroke="#222" stroke-width="2"/>
+    <text x="772" y="221" font-weight="bold">GND splice</text>
+    <circle cx="778" cy="239" r="6" fill="#8b5a2b"/>
+    <text x="790" y="244">brown (ribbon) → LCD GND</text>
+    <circle cx="778" cy="261" r="6" fill="#222"/>
+    <text x="790" y="266">black → sensor GND</text>
+  </g>
+
+  <!-- ===== Board ===== -->
+  <rect x="330" y="296" width="340" height="148" rx="8" fill="#1d4f91" stroke="#0e2f5a" stroke-width="2"/>
+  <rect x="660" y="340" width="54" height="60" rx="6" fill="#c9ced6" stroke="#7d8590" stroke-width="2"/>
+  <text x="687" y="375" font-size="11" text-anchor="middle" fill="#333">USB-C</text>
+  <rect x="470" y="345" width="50" height="50" fill="#222" transform="rotate(45 495 370)"/>
+  <text x="430" y="376" font-size="15" font-weight="bold" text-anchor="middle" fill="#fff">ESP32-S3-Zero</text>
+
+  <!-- top pads: 6 5 4 3 2 1 3V3 GND 5V -->
+  <g fill="#d4a017" stroke="#8a6a10" stroke-width="2">
+    <circle cx="360" cy="310" r="9"/><circle cx="395" cy="310" r="9"/><circle cx="430" cy="310" r="9"/>
+    <circle cx="465" cy="310" r="9"/><circle cx="500" cy="310" r="9"/><circle cx="535" cy="310" r="9"/>
+    <circle cx="570" cy="310" r="9"/><circle cx="605" cy="310" r="9"/><circle cx="640" cy="310" r="9"/>
+    <circle cx="360" cy="430" r="9"/><circle cx="395" cy="430" r="9"/><circle cx="430" cy="430" r="9"/>
+    <circle cx="465" cy="430" r="9"/><circle cx="500" cy="430" r="9"/><circle cx="535" cy="430" r="9"/>
+    <circle cx="570" cy="430" r="9"/><circle cx="605" cy="430" r="9"/><circle cx="640" cy="430" r="9"/>
+  </g>
+  <g font-size="12" font-weight="bold" fill="#fff" text-anchor="middle">
+    <text x="360" y="337">6</text><text x="395" y="337">5</text><text x="430" y="337">4</text>
+    <text x="465" y="337">3</text><text x="500" y="337">2</text><text x="535" y="337">1</text>
+    <text x="570" y="337">3V3</text><text x="605" y="337">GND</text><text x="640" y="337">5V</text>
+    <text x="360" y="414">7</text><text x="395" y="414">8</text><text x="430" y="414">9</text>
+    <text x="465" y="414">10</text><text x="500" y="414">11</text><text x="535" y="414">12</text>
+    <text x="570" y="414">13</text><text x="605" y="414">RX</text><text x="640" y="414">TX</text>
+  </g>
+
+  <!-- 5V: leave empty -->
+  <g stroke="#d62828" stroke-width="3" stroke-linecap="round">
+    <line x1="633" y1="303" x2="647" y2="317"/><line x1="647" y1="303" x2="633" y2="317"/>
+    <line x1="650" y1="310" x2="722" y2="310"/>
+  </g>
+  <text x="728" y="306" font-size="14" font-weight="bold" fill="#d62828">5V: leave empty</text>
+  <text x="728" y="323" font-size="12" fill="#d62828">(USB 5V; never to sensors or GPIOs)</text>
+
+  <!-- ===== LCD ===== -->
+  <rect x="330" y="600" width="390" height="104" rx="6" fill="#f4f6fa" stroke="#555" stroke-width="2"/>
+  <g font-size="13" font-weight="bold" fill="#111" text-anchor="middle">
+    <text x="360" y="622">BL</text><text x="395" y="622">RST</text><text x="430" y="622">DC</text>
+    <text x="465" y="622">CS</text><text x="500" y="622">DIN</text><text x="535" y="622">CLK</text>
+    <text x="600" y="622">VCC</text><text x="650" y="622">GND</text>
+  </g>
+  <g font-size="11" fill="#444" text-anchor="middle">
+    <text x="360" y="640">gray</text><text x="395" y="640">blue</text><text x="430" y="640">purple</text>
+    <text x="465" y="640">green</text><text x="500" y="640">orange</text><text x="535" y="640">yellow</text>
+    <text x="600" y="640">red</text><text x="650" y="640">brown</text>
+    <text x="600" y="656">→ 3V3</text><text x="650" y="656">→ GND</text>
+    <text x="600" y="670">splice</text><text x="650" y="670">splice</text>
+  </g>
+  <text x="345" y="692" font-size="13" fill="#111">Waveshare 2" LCD · ribbon stays plugged into the display</text>
+
+  <!-- ===== Notes ===== -->
+  <g font-size="14" fill="#111">
+    <text x="40" y="740"><tspan font-weight="bold">Everything runs on 3.3 V.</tspan> The IR sensors pull their OUT up to their own supply, so on 5V they would put 5 V on GP4–6.</text>
+    <text x="40" y="762">Two blues and two yellows: the <tspan font-weight="bold">ribbon</tspan> ones go to the LCD (GP8, GP12), the <tspan font-weight="bold">single</tspan> wires go to the sensors (GP4, GP5).</text>
+    <text x="40" y="784">Unused: GP1–3, GP13, RX, TX, and the pads on the face (14–16) and back. Power and programming come over USB-C.</text>
+  </g>
+</svg>

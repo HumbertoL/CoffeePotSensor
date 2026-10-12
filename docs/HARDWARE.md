@@ -48,13 +48,15 @@ This is everything known so far about the physical build: the parts, how they're
 [Wiki](https://www.waveshare.com/wiki/ESP32-S3-Zero). It's also sold as the "ESP32-S3 Mini Development Board".
 
 - **Chip:** ESP32-S3FH4R2, a dual-core 240 MHz processor with 4 MB of flash, 2 MB of PSRAM, Wi-Fi and BLE 5.
+- **Size:** 18 × 23.5 mm board, with a 1.7 mm thick PCB. It comes without headers; solder on two 9-pin male strips at the standard 2.54 mm pitch.
 - **USB:** native USB-C only, with no USB-to-serial chip. To force download mode, hold **BOOT** while plugging it in.
 - **Pins are 3.3 V only and not 5 V tolerant.**
 - **3V3(OUT):** this pin is fed by the onboard regulator, rated for up to 800 mA.
+- **5V pin:** this is the USB 5V, passed straight through. It's an output when the board runs on USB, or an input if the board is powered from it instead. **In this project nothing connects to it.** The sensors and the LCD run on 3V3, and 5V must never reach a GPIO.
 - **Onboard RGB LED:** a WS2812 on GPIO21.
-- **Header pins vs. solder pads:** only some GPIOs are on the edge headers.
-  - Left header: 5V, GND, 3V3, GP1–GP6.
-  - Right header: TX (43), RX (44), GP13–GP7.
+- **Header pins vs. solder pads:** only some GPIOs are on the edge headers. As printed on the board, viewed face up with the USB-C on the right:
+  - **Top edge**, left to right: 6, 5, 4, 3, 2, 1, 3V3, GND, 5V.
+  - **Bottom edge**, left to right: 7, 8, 9, 10, 11, 12, 13, RX (43), TX (44).
   - **Solder pads only:** GP14–16 on the front; GP17, 18, 38–42 and 45 on the back.
 - **Avoid:** GPIO0 and GPIO3 (they affect how the chip boots), 21 (the RGB LED), and 43/44 (the serial port).
 
@@ -76,7 +78,36 @@ This is everything known so far about the physical build: the parts, how they're
 | Sensor VCC | 5V | **3V3 only** |
 | Sensor GND | GND | GND |
 
-On the ESP32-S3-Zero, all of these pins are on the edge headers, so none of the solder pads are needed. The display connects to the right header (GP7–12), and the sensors connect to the left header (GP4–6, next to 3V3 and GND).
+On the ESP32-S3-Zero, all of these pins are on the edge headers, so none of the solder pads are needed. The display connects along the bottom edge (GP7–12). The sensors connect along the top edge (GP4–6), which also has 3V3 and GND.
+
+### Swapping the Nano for the ESP32-S3-Zero (test)
+
+![ESP32-S3-Zero test wiring](esp32-wiring.svg)
+
+This test reuses every wire from the current Nano build (see the next section) and only moves their ends.
+- **Display:** the ribbon stays plugged into the LCD.
+- **Sensor signals:** the three single wires move to GP4–6.
+- **Power:**
+  - The board has only one 3V3 pin and one GND pin.
+  - Each one feeds a splice connector, and everything that needs power branches off a splice.
+  - The white sensor wire moves from the Nano's 5V to **3V3**.
+
+**Steps**
+1. Solder the two 9-pin headers, with the pins pointing away from the BOOT/RESET buttons.
+2. Move the wires as shown in the diagram. Two colors appear twice:
+   - **Ribbon blue and yellow** go to the LCD: RST on GP8 and CLK on GP12.
+   - **Single blue and yellow wires** go to the sensors: GP4 and GP5.
+3. Leave **5V** empty. The IR modules pull their output up to their own supply, so on 5V they would put 5 V on GP4–6.
+4. Flash the firmware over USB-C with board `esp32:esp32:waveshare_esp32_s3_zero`. If no `/dev/cu.usbmodem*` port appears, hold **BOOT** while plugging in.
+5. Open the serial monitor at 115200 baud. Expect `[BOOT] Starting CoffeePot Monitor...`.
+6. Check the screen:
+   - The title and three rows appear.
+   - Pots already present show **Unknown**.
+   - A lifted pot shows **Removed** after about 3 seconds.
+   - A pot put back starts its timer after about 1 second.
+7. If detection got worse, re-tune each sensor's sensitivity screw. They have a shorter range at 3.3 V.
+
+Expected draw on 3V3 is roughly 100–150 mA (backlight plus three sensors), well within the regulator's rating.
 
 ## Current Nano build: wire colors
 
