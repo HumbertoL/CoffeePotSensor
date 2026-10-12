@@ -38,9 +38,10 @@ This is everything known so far about the physical build: the parts, how they're
 
 ### Arduino Nano (current)
 
+- The board is a **RobotDyn Nano V3**, a clone with a micro-USB port.
 - ATmega328P chip at 16 MHz, with 2 KB of RAM and 32 KB of flash.
 - Its pins run at 5 V, but the display expects 3.3 V. This is out of spec, but it works in practice.
-- It uses the old Nano bootloader *(unverified)*. That's why the idle restart avoids a watchdog reset; see CLAUDE.md.
+- Its bootloader is unknown. Clones like this often have the old Nano bootloader, but this one isn't verified. That's why the idle restart avoids a watchdog reset; see CLAUDE.md.
 
 ### Waveshare ESP32-S3-Zero (replacing the Nano)
 
@@ -76,6 +77,66 @@ This is everything known so far about the physical build: the parts, how they're
 | Sensor GND | GND | GND |
 
 On the ESP32-S3-Zero, all of these pins are on the edge headers, so none of the solder pads are needed. The display connects to the right header (GP7–12), and the sensors connect to the left header (GP4–6, next to 3V3 and GND).
+
+## Current Nano build: wire colors
+
+This is the wiring as it is today, read from photos of the open case (October 2026) and checked against the pin assignments in the code. Each row says how it was determined:
+- **Code + photo:** the photo clearly shows the wire on that pin, and it matches the code.
+- **Photo:** traced in the photos, and consistent with the code, but not certain.
+- **Builder:** confirmed by the person who wired it.
+- **Inferred:** worked out from what's left over. Check with a continuity tester before relying on it.
+
+### Board and connections
+
+- **Board:** a RobotDyn Nano V3 (ATmega328P) mounted upside down, taped inside the center body.
+- **Power:** a white micro-USB cable.
+- **Connections:** all wires use individual Dupont female jumper housings on the Nano's headers. Nothing is soldered.
+- **Sensor power:** it's shared through two orange-lever splice connectors, WAGO-style.
+
+### Display (8-wire rainbow ribbon)
+
+At the LCD end, the ribbon plugs into the module's 8-pin header with a single housing. The module's white cable connector is unused. Read top to bottom at the LCD, the colors are red, brown, orange, yellow, green, purple, blue, gray. That matches the header order VCC, GND, DIN, CLK, CS, DC, RST, BL.
+
+| LCD pin | Wire | Nano pin | Source |
+|---|---|---|---|
+| VCC | red | 5V (analog-side row) | Code + photo |
+| GND | brown | GND (digital-side row, next to RST) | Photo |
+| DIN | orange | D11 | Photo |
+| CLK | yellow | D13 | Code + photo |
+| CS | green | D10 | Photo |
+| DC | purple | D7 | Photo |
+| RST | blue | D8 | Photo |
+| BL | gray | D9 | Photo |
+
+On the Nano end, DC, RST, BL, CS and DIN occupy D7–D11 as one group of housings, in that order from left to right: purple, blue, gray, green, orange. That order matches the LCD end exactly.
+
+### Pot sensors (single-color jumper wires)
+
+| Nano pin | Wire | Goes to | Pot in code | Source |
+|---|---|---|---|---|
+| D2 | blue | Left side box (as seen from the front) | Medium (`POT1_PIN`) | Photo |
+| D3 | yellow | Center body sensor | Dark (`POT2_PIN`) | Photo |
+| D4 | teal / green | Right side box (as seen from the front) | Decaf (`POT3_PIN`) | Photo |
+
+- **Photo orientation:** the photos of the inside were taken from the back, with the doors off. Left and right in them are swapped compared with the front view.
+- **Pot order:** the mapping above puts the pots left to right as Medium, Dark, Decaf, which matches the order on screen.
+- **Exposed pins:** the Nano's digital-row GND and D2–D4 sit next to each other as one group of four housings: brown (LCD GND), blue, yellow, teal.
+
+### Power distribution
+
+| From | Wire | To | Source |
+|---|---|---|---|
+| USB | white micro-USB cable | Nano | Photo |
+| 5V (analog-side row) | red (ribbon) | LCD VCC | Code + photo |
+| GND (digital-side row) | brown (ribbon) | LCD GND | Photo |
+| GND (analog-side row) | black | Sensor GND, via a lever splice connector | Inferred |
+| ICSP header, 5V pin | white | Sensor 5V, via a lever splice connector | Builder (wired from a Nano pinout diagram; not measured) |
+
+- **The ICSP white wire:** the analog-side 5V pin is already used by the LCD, so the white wire takes 5V from the ICSP header's 5V pin instead. The builder wired it following a Nano pinout diagram.
+- **Sensor leads:** at least one side box sensor's leads are extended with Dupont jumpers. Red and black wires leave toward that box alongside its blue signal wire.
+- **Free pins:** D5, D6, D12, A0–A7, and RX/TX (D0/D1). D12 (MISO) isn't needed because the LCD is write-only.
+
+The splice connectors make shared 5V/GND easy. A cleanup could run one 5V and one GND from the Nano to a single splice each, with every sensor and the LCD branching off. That's the same idea as the rails on the planned sensor rod (see below).
 
 ## Pot sensors: IR reflection modules *(type inferred from the code)*
 
