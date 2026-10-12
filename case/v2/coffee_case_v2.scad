@@ -27,6 +27,8 @@
 //   Test prints:
 //     "sensor_test"   a piece of the center bar around its sensor, plus its cover
 //     "esp_test"      the bottom strip of the head: ESP32 and Porcupine board mounts
+//     "joint_test"    the bar dovetail, the mast socket, the mast dovetail and a strip, all in one print
+//     "joint_test_view"  the joint_test pieces fitted together (EXPLODE pulls them apart)
 PART = "assembly";
 SHOW_PARTS = true;  // preview only; never in an STL
 EXPLODE = 0;        // pulls covers and strips forward in the assembly views
@@ -646,6 +648,46 @@ module sensor_test() {
   }
 }
 
+// Joint test: short pieces cut from the real parts, laid out in a row.
+//   1, 2  the center segment's end (dovetail tab) and the left segment's end (notch)
+//   3     the middle of the center segment: mast socket cheeks and wire opening
+//         (the head's socket uses the same cheeks)
+//   4, 5  a short lower mast piece (plugs into 3, notch on top) and a short upper piece (tab)
+//   6     a short mast strip that presses onto 4
+module joint_test() {
+  translate([joint + 7, 0, 0]) intersection() {
+    bar_body(1);
+    box([-joint - bar_dt[2] - 1, -1, -1], [-joint + 12, bar_h + 1, bar_d]);
+  }
+  translate([joint + 14 + 25, 0, 0]) intersection() {
+    bar_body(0);
+    box([-joint - 14, -1, -1], [-joint + 1, bar_h + 1, bar_d]);
+  }
+  translate([65, 0, 0]) intersection() {
+    bar_body(1);
+    box([-15, -1, -1], [15, bar_h + cheek_h + 1, bar_d]);
+  }
+  translate([95, -mast_y0, 0]) mast_piece(mast_y0, mast_y0 + 25, false, true);
+  translate([115, -(mast_y0 + 25 - mast_dt[2]), 0]) mast_piece(mast_y0 + 25, mast_y0 + 40, true, false);
+  translate([135, 25, 0]) face_down(mast_d) translate([0, -mast_y0, 0]) mast_strip(mast_y0, mast_y0 + 25);
+}
+
+// The joint_test pieces in their real positions, to show how they go together
+module joint_test_view(e = EXPLODE) {
+  // Bar dovetail: the left segment's end presses onto the center segment's tab from the front
+  translate([joint + 10, 0, 0]) {
+    color("whitesmoke") intersection() { bar_body(1); box([-joint - bar_dt[2] - 1, -1, -1], [-joint + 12, bar_h + 1, bar_d]); }
+    color("lightsteelblue") translate([0, 0, e]) intersection() { bar_body(0); box([-joint - 14, -1, -1], [-joint + 1, bar_h + 1, bar_d]); }
+  }
+  // Mast socket, mast pieces and strip
+  translate([60, 0, 0]) {
+    color("whitesmoke") intersection() { bar_body(1); box([-15, -1, -1], [15, bar_h + cheek_h + 1, bar_d]); }
+    color("lightsteelblue") translate([0, e, 0]) mast_piece(mast_y0, mast_y0 + 25, false, true);
+    color("lightgreen") translate([0, 2 * e, e]) mast_piece(mast_y0 + 25, mast_y0 + 40, true, false);
+    color("orange") translate([0, e, 2 * e]) mast_strip(mast_y0, mast_y0 + 25);
+  }
+}
+
 // ESP32 / Porcupine board test: the bottom strip of the head body
 module esp_test() intersection() {
   head_body();
@@ -669,4 +711,6 @@ else if (PART == "head") translate([0, cheek_h, 0]) head_body();
 else if (PART == "head_cover") face_down(head_d) head_cover();
 else if (PART == "sensor_test") sensor_test();
 else if (PART == "esp_test") esp_test();
+else if (PART == "joint_test") joint_test();
+else if (PART == "joint_test_view") joint_test_view();
 else echo(str("Unknown PART: ", PART));

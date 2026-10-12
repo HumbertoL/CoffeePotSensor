@@ -69,6 +69,13 @@ These follow the office_ac_controller approach: print the parts that are easy to
 2. **`head_cover`** (small and quick): hold it over the LCD, with the LCD resting on a flat surface glass-up. Check that the window frames the lit image and that the screw-head reliefs line up.
 3. **`esp_test`:** the bottom strip of the head body. Check that the ESP32 drops onto its two end supports, with the USB-C at the left wall, and that the Porcupine board snaps between its corner fences.
 
+4. **`joint_test`** (142 × 33 mm, one print): short pieces cut from the real parts.
+   - **Bar dovetail:** the center segment's end with its tab, and the left segment's end with its notch. Press them together from the front; they should lock snugly, with no wobble.
+   - **Mast socket:** the middle of the center segment, with the socket cheeks. The head's socket is identical.
+   - **Mast pieces:** a short lower piece, which plugs into the socket and has the dovetail notch on top, and a short upper piece with the tab.
+   - **Mast strip:** a short strip that should press onto the lower piece.
+   - **Too tight or too loose:** adjust `dt_clr` for the dovetails, `clr` for the socket, and `rib` for the strip.
+
 The spider board's holder isn't in any test piece. It sits between the bar's walls (0.25 mm to spare on each side), on four corner feet, between two end stops. The center cover has a post that presses on its empty middle.
 
 Then print the rest.
