@@ -1,5 +1,5 @@
 // brew-em-all case v2: a sensor bar along the pots, a mast, and a head with
-// the LCD, the ESP32-S3-Zero and the power board.
+// the LCD, the ESP32-S3-Zero and the Porcupine power board.
 //
 // Frame (mm): X runs left -> right as seen from the front, Y runs up the wall,
 // Z points out of the wall (Z = 0 is the wall). The center sensor's LEDs are at
@@ -13,14 +13,29 @@
 // The boards, LEDs and wires are drawn only in preview (F5) with SHOW_PARTS on.
 // Rendering (F6) or exporting never includes them.
 
-PART = "assembly";  // see the dispatch at the bottom for every option
+// What to show or export:
+//   Views (preview with F5; the boards and wires show only here):
+//     "assembly"          everything, closed (default)
+//     "assembly_open"     covers and strips removed, to see the boards inside
+//     "exploded"          covers and strips pulled forward by EXPLODE (default 30 mm)
+//   Print parts (each laid out on the bed, ready to export with F6):
+//     "bar_left", "bar_center", "bar_right"                    bar bodies, on their backs
+//     "bar_cover_left", "bar_cover_center", "bar_cover_right"  bar covers, face down
+//     "mast_lower", "mast_upper"                               mast pieces, on their backs
+//     "mast_strip_lower", "mast_strip_upper"                   mast strips, face down
+//     "head", "head_cover"                                     head body (back) and cover (face down)
+//   Test prints:
+//     "sensor_test"   a piece of the center bar around its sensor, plus its cover
+//     "esp_test"      the bottom strip of the head: ESP32 and Porcupine board mounts
+PART = "assembly";
 SHOW_PARTS = true;  // preview only; never in an STL
 EXPLODE = 0;        // pulls covers and strips forward in the assembly views
 
 /* ---------- Fit (from office_ac_controller: tune after test prints) ---------- */
 clr       = 0.3;   // general clearance per side
-cover_clr = 0.2;   // gap between a cover's lip and the body's rebate
-rib       = 0.3;   // crush ribs stand this far out (0.1 mm interference)
+cover_clr = 0.1;   // gap between a cover's lip and the body's rebate (0.2 printed loose)
+rib       = 0.35;  // crush ribs stand this far out (0.25 mm interference with cover_clr 0.1)
+rib_pitch = 20;    // crush ribs every this far along each edge
 wall      = 2.4;
 plate     = 1.6;   // front cover plate thickness
 lip_h     = 3.0;   // how far a cover's lip reaches down over the body
@@ -49,6 +64,7 @@ fc_hole_d = 3.0;
 fc_pot    = [17.4, 9.4];   // sensitivity screw
 fc_pot_sz = [6.6, 7.0, 4.8];
 fc_hdr_out = 6.0;          // right-angle header pins past the board's end
+fc_hdr_v  = 6.3;           // header's middle pin (GND), down from the emitter-side edge
 dupont_l  = 14.5;
 sensor_flip = [true, false, false]; // left sensor turned 180° so its header faces the center
 
@@ -88,7 +104,7 @@ win_margin    = 0.6;          // window margin around the lit image
 screw_relief_d = 6.0;
 lcd_post_gap  = 0.0;          // raise if the cover won't close over the LCD
 
-/* ---------- Head: ESP32-S3-Zero and power board (measured) ---------- */
+/* ---------- Head: ESP32-S3-Zero and the "Porcupine" power board (measured) ---------- */
 esp       = [23.5, 18, 1.7];
 esp_top   = 3.0;     // USB-C height above the PCB
 esp_stack = 24;      // USB-C top to the jumper bend
@@ -96,8 +112,18 @@ usb_over  = 1.0;     // USB-C past the board's end
 usb_w     = 9.0;
 usb_plug  = [13, 7.5]; // opening for the cable's plug (width along Y, height along Z)
 esp_jaw   = [2.5, 10]; // supports under the board's short ends (X length, Y width)
-pwr       = [20, 15, 1.6]; // power board, pin rows along X
+pwr       = [20, 15, 1.6]; // Porcupine board, pin rows along X
 pwr_feet  = 2.0;           // clears the solder bridges underneath
+
+/* ---------- Bar: the "spider" power board (measured) ---------- */
+// Splits the mast's 3V3 and GND to the three sensors. Two rows of 5 right-angle
+// pins, one row per rail, pointing out of opposite ends: 3V3 to the left, GND to the right.
+sp        = [20, 16.1, 1.5]; // PCB: X (pin direction) x Y x thickness
+sp_x0     = 20;              // left edge of the board, in the center segment
+sp_row_in = 4.0;             // pin rows, in from the left and right edges
+sp_pin_h  = 7.0;             // bottom of the solder to the top of the pins' bend
+sp_solder = 1.0;             // solder bridges underneath
+sp_feet   = 1.5;             // corner feet that clear them
 
 /* =================================================================== */
 /* Derived dimensions                                                   */
@@ -151,6 +177,9 @@ lcd_holes = [for (i = [0, 1], j = [0, 1])
   [lcd_x0 + (i ? lcd_pcb[0] - lcd_hole_in[0] : lcd_hole_in[0]),
    lcd_y0 + (j ? lcd_pcb[1] - lcd_hole_in[1] : lcd_hole_in[1])]];
 
+z_sp0   = wall + sp_feet;                       // spider PCB bottom
+sp_pin_z = z_sp0 - sp_solder + sp_pin_h - 0.32; // center of its horizontal pins
+
 y_hb    = y_s + screen_h - img_bot;            // head bottom
 mast_y0 = bar_h;
 mast_y1 = y_hb;
@@ -194,14 +223,18 @@ module rebate_cut(x0, x1, h, top, cl, cr) translate([0, 0, top - lip_h]) differe
 }
 module rebate_ribs(x0, x1, h, top, cl, cr) {
   z0 = top - lip_h; z1 = top - 0.6;
-  n = max(2, round((x1 - x0) / 45));
+  n = max(2, round((x1 - x0) / rib_pitch));
   for (k = [0 : n - 1]) {
     x = x0 + (x1 - x0) * (k + 0.5) / n;
     rib_z(x, lip_t, z0, z1, [0, -1]);
     rib_z(x, h - lip_t, z0, z1, [0, 1]);
   }
-  if (cl) rib_z(x0 + lip_t, h / 2, z0, z1, [-1, 0]);
-  if (cr) rib_z(x1 - lip_t, h / 2, z0, z1, [1, 0]);
+  m = max(1, round(h / rib_pitch));
+  for (k = [0 : m - 1]) {
+    y = h * (k + 0.5) / m;
+    if (cl) rib_z(x0 + lip_t, y, z0, z1, [-1, 0]);
+    if (cr) rib_z(x1 - lip_t, y, z0, z1, [1, 0]);
+  }
 }
 // A cover's lip: a frame on the given sides, hanging below the plate
 module cover_lip(x0, x1, h, top, cl, cr) {
@@ -245,6 +278,14 @@ module bar_body(i) {
     translate([0, 0, z_board - 0.01]) cylinder(d = fc_hole_d - 0.4, h = fc_t + 0.8);
   }
 
+  // Spider board: feet at its corners and stops at its ends (the bar's walls locate it top and bottom)
+  if (i == 1) {
+    for (x = [sp_x0, sp_x0 + sp[0] - 2.5], y = [y_s - sp[1] / 2, y_s + sp[1] / 2 - 2.5])
+      translate([x, y, wall - 0.01]) cube([2.5, 2.5, sp_feet + 0.01]);
+    for (x = [sp_x0 - clr - 1.6, sp_x0 + sp[0] + clr])
+      box([x, y_s - 3, wall - 0.01], [x + 1.6, y_s + 3, z_sp0 + sp[2] + 1]);
+  }
+
   // Dovetail tabs on the center segment's back wall
   if (i == 1) for (s = [-1, 1])
     translate([s * joint, bar_h / 2, 0]) rotate([0, 0, s > 0 ? 0 : 180])
@@ -284,6 +325,8 @@ module bar_cover(i) {
         translate(concat(P(fc_hole), [ring_z0])) cylinder(d = 6, h = bar_top - ring_z0 + 0.01);
         }
       }
+      // Post that holds the spider board down, on its empty middle
+      if (i == 1) translate([sp_x0 + sp[0] / 2, y_s, z_sp0 + sp[2] + 0.2]) cylinder(d = 4, h = bar_top - z_sp0 - sp[2] - 0.19);
     }
     at_sensor(i) {
       for (p = [fc_em, fc_rx]) translate(concat(P(p), [z_tip - 3])) cylinder(d = bore, h = bar_d);
@@ -315,7 +358,7 @@ module mast_strip(y0, y1) {
   translate([-mast_w / 2, y0, mast_body_d]) cube([mast_w, y1 - y0, plate]);
   for (s = [-1, 1]) {
     translate([s > 0 ? xo - t : -xo, y0 + 2, mast_body_d - 2.5]) cube([t, y1 - y0 - 4, 2.51]);
-    for (y = [y0 + (y1 - y0) * 0.25, y0 + (y1 - y0) * 0.75])
+    for (y = [y0 + rib_pitch / 2 : rib_pitch : y1 - 2])
       translate([s * xo - s * (0.5 - rib), y, mast_body_d - 2.5]) cylinder(r = 0.5, h = 2.5, $fn = 12);
   }
 }
@@ -336,7 +379,10 @@ module head_body() {
     // Wire opening down into the mast
     gable_hole(head_w / 2, mast_in_w / 2 - 0.5, wall, 8, -1, wall + 1);
   }
-  rebate_ribs(0, head_w, head_h, head_top, true, true);
+  difference() {   // no ribs inside the USB-C opening
+    rebate_ribs(0, head_w, head_h, head_top, true, true);
+    box([-1, esp_cy - usb_plug[0] / 2 - 1, 0], [wall + 1, esp_cy + usb_plug[0] / 2 + 1, head_top + 1]);
+  }
 
   // LCD: posts under the standoffs, each with a pin into the standoff's bore
   for (h = lcd_holes) translate([h[0], h[1], 0]) {
@@ -352,7 +398,7 @@ module head_body() {
   box([esp_x1 + clr, esp_cy - 3, wall - 0.01], [esp_x1 + clr + 2, esp_y1 + clr + 2, esp_z1 + 1]);
   box([esp_x1 - 5, esp_y1 + clr, wall - 0.01], [esp_x1 + clr + 2, esp_y1 + clr + 2, esp_z1 + 1]);
 
-  // Power board: feet at the corners and corner fences with crush ribs
+  // Porcupine board: feet at the corners and corner fences with crush ribs
   for (i = [0, 1], j = [0, 1]) {
     cx = i ? pwr_x1 : pwr_x0; cy = j ? pwr_y0 + pwr[1] : pwr_y0;
     sx_ = i ? -1 : 1; sy_ = j ? -1 : 1;
@@ -412,7 +458,7 @@ module fc51() {
   // Sensitivity screw
   color("deepskyblue") translate(concat(P(fc_pot) - [fc_pot_sz[0], fc_pot_sz[1]] / 2, [z_btop])) cube(fc_pot_sz);
   // Header, pins and jumpers
-  hy = P([0, 6.3])[1];
+  hy = P([0, fc_hdr_v])[1];
   color("black") translate([P([0, 0])[0], hy - 3.8, z_btop]) cube([2.5, 7.6, 2.5]);
   for (k = [-1, 0, 1]) {
     color("gold") translate([P([0, 0])[0] - fc_hdr_out, hy + k * 2.54 - 0.32, z_btop + 0.9]) cube([fc_hdr_out, 0.64, 0.64]);
@@ -432,7 +478,7 @@ module lcd() {
     color("silver") translate([h[0], h[1], lcd_zf]) cylinder(d = 4.5, h = lcd_glass - 0.1);
   }
   for (k = [0 : 7]) {
-    y = img_c[1] + (k - 3.5) * 2.54;
+    y = lcd_pin(k)[1];
     color("gold") translate([lcd_x0 + lcd_hdr_x - 0.32, y - 0.32, lcd_zb - 8.5]) cube([0.64, 0.64, 8.5]);
     color("dimgray") translate([lcd_x0 + lcd_hdr_x - 1.27, y - 1.27, lcd_zb - 2.5 - dupont_l]) cube([2.54, 2.54, dupont_l]);
   }
@@ -442,10 +488,10 @@ module lcd() {
 module esp32() {
   color("navy") translate([esp_x0, esp_y0, esp_z0]) cube(esp);
   color("silver") translate([esp_x0 - usb_over, esp_cy - usb_w / 2, esp_z1]) cube([7.5, usb_w, esp_top]);
-  for (y = [esp_y0, esp_y1 - 2.5]) {
-    color("black") translate([esp_x0 + 0.3, y, esp_z0 - 2.5]) cube([esp[0] - 0.6, 2.5, 2.5]);
-    for (k = [0 : 8]) color("dimgray")
-      translate([esp_x0 + esp[0] / 2 + (k - 4) * 2.54 - 1.2, y, esp_z0 - 2.5 - dupont_l]) cube([2.4, 2.5, dupont_l]);
+  for (e = [0, 1]) {
+    color("black") translate([esp_x0 + 0.3, e ? esp_y1 - 2.5 : esp_y0, esp_z0 - 2.5]) cube([esp[0] - 0.6, 2.5, 2.5]);
+    for (k = esp_used[e]) color("dimgray")
+      translate(esp_pin(e, k) - [1.2, 1.25, 0]) cube([2.4, 2.5, dupont_l]);
   }
 }
 
@@ -459,17 +505,107 @@ module pwr_board() {
   }
 }
 
-module wire_bundle() {
-  cols = ["blue", "yellow", "teal", "red", "red", "red", "black", "black", "black"];
-  for (k = [0 : 8]) color(cols[k])
-    translate([(k % 3 - 1) * 1.6, mast_y0 - 6, mast_back + 1.5 + floor(k / 3) * 1.6])
-      rotate([-90, 0, 0]) cylinder(d = 1.4, h = mast_y1 - mast_y0 + 12, $fn = 8);
+// Spider board in the bar
+module spider() {
+  color("seagreen") translate([sp_x0, y_s - sp[1] / 2, z_sp0]) cube(sp);
+  color("silver") translate([sp_x0 + sp_row_in - 0.5, y_s - 6, z_sp0 - sp_solder]) cube([1, 12, sp_solder]);
+  color("silver") translate([sp_x0 + sp[0] - sp_row_in - 0.5, y_s - 6, z_sp0 - sp_solder]) cube([1, 12, sp_solder]);
+  for (side = [-1, 1], k = [0 : 4]) {
+    p = sp_pin(side, k);
+    row = side < 0 ? sp_x0 + sp_row_in : sp_x0 + sp[0] - sp_row_in;
+    color("black") translate([row - 1.25, p[1] - 1.27, z_sp0 + sp[2]]) cube([2.5, 2.54, sp_pin_z - z_sp0 - sp[2] + 1.27]);
+    color("dimgray") translate([side < 0 ? p[0] : row + 1.25, p[1] - 1.27, sp_pin_z - 1.27]) cube([dupont_l, 2.54, 2.54]);
+  }
+}
+
+/* ---------- Wire end points (where each wire leaves its Dupont housing) ---------- */
+// Sensor i's header: k = +1 OUT, 0 GND, -1 VCC
+function sens_pin(i, k) = let(f = sensor_flip[i], lx = -fc_mid[0] - dupont_l, ly = fc_mid[1] - fc_hdr_v + k * 2.54)
+  [sx[i] + (f ? -lx : lx), y_s + (f ? -ly : ly), z_btop + 1.27];
+// Spider: side -1 = 3V3 row (left), +1 = GND row (right); k = 0 mast feed, 1-3 sensors 0-2, 4 spare
+function sp_pin(side, k) = [side < 0 ? sp_x0 + sp_row_in - 1.25 - dupont_l : sp_x0 + sp[0] - sp_row_in + 1.25 + dupont_l,
+                            y_s + (k - 2) * 2.54, sp_pin_z];
+// ESP32 (head coordinates). It's turned so USB-C faces left: edge 0 (bottom) reads
+// 5V, GND, 3V3, 1, 2, 3, 4, 5, 6 from the left; edge 1 (top) reads TX, RX, 13, 12 ... 7.
+esp_used = [[1, 2, 6, 7, 8], [3, 4, 5, 6, 7, 8]];
+function esp_pin(e, k) = [esp_x0 + esp[0] / 2 + (k - 4) * 2.54, e ? esp_y1 - 1.25 : esp_y0 + 1.25, esp_z0 - 2.5 - dupont_l];
+// Porcupine board (head coordinates): row 1 = 3V3, row 0 = GND; k = 0 ESP32, 1 LCD, 2 mast
+function pwr_pin(r, k) = [pwr_x0 + pwr[0] / 2 + (k - 2.5) * 2.54, pwr_y0 + pwr[1] / 2 + (r - 0.5) * 2 * 2.54, pwr_z0 + pwr[2] + 2.5 + dupont_l];
+// LCD header (head coordinates), top to bottom: VCC, GND, DIN, CLK, CS, DC, RST, BL
+function lcd_pin(k) = [lcd_x0 + lcd_hdr_x, img_c[1] + (3.5 - k) * 2.54, lcd_zb - 2.5 - dupont_l];
+function H(p) = [p[0] - head_w / 2, p[1] + y_hb, p[2]];
+function Hs(ps) = [for (p = ps) H(p)];
+
+module wire(pts, col, d = 1.4) color(col) for (i = [0 : len(pts) - 2])
+  hull() { translate(pts[i]) sphere(d = d, $fn = 8); translate(pts[i + 1]) sphere(d = d, $fn = 8); }
+
+// Every wire, along its planned route
+module wires() {
+  zc = wall + 2;        // channel behind the sensor boards
+  zf = 15;              // in front, to pass over the spider board
+  out_col = ["blue", "yellow", "teal"];
+  mx = [-3, -1.5, 0, 1.5, 3];   // positions in the mast: 3 OUTs, 3V3, GND
+  zm = mast_back + 3;
+  for (i = [0 : 2]) {
+    f = sensor_flip[i];
+    away = sens_pin(i, 0)[0] + (sens_pin(i, 0)[0] > sx[i] ? 5 : -5); // just past the jumpers
+    // OUT -> mast
+    o = sens_pin(i, 1);
+    lane_o = y_s - 5 + i * 0.9;
+    wire(concat([o, [away, o[1], o[2]], [away, lane_o, zc]],
+                 i == 2 ? [[sp_x0 + sp[0] + 20, lane_o, zc], [sp_x0 + sp[0] + 20, lane_o, zf], [mx[i] + 4, lane_o, zf], [mx[i], lane_o, zm]]
+                        : [[mx[i], lane_o, zc]],
+                 [[mx[i], bar_h + 2, zm]]), out_col[i]);
+    // VCC -> spider's 3V3 row; GND -> its GND row
+    v = sens_pin(i, -1); g = sens_pin(i, 0);
+    pv = sp_pin(-1, i + 1); pg = sp_pin(1, i + 1);
+    lane_v = y_s + 4 + i * 0.7; lane_g = y_s + 5.8 + i * 0.4;
+    wire(i == 2 ? [v, [away, v[1], v[2]], [away, lane_v, zf], [pv[0] - 4, lane_v, zf], [pv[0] - 4, pv[1], pv[2]], pv]
+                : [v, [away, v[1], v[2]], [away, lane_v, zc], [pv[0] - 4, lane_v, zc], [pv[0] - 4, pv[1], pv[2]], pv], "red");
+    wire(i == 2 ? [g, [away, g[1], g[2]], [away, lane_g, zc], [pg[0] + 4, lane_g, zc], [pg[0] + 4, pg[1], pg[2]], pg]
+                : [g, [away, g[1], g[2]], [away, lane_g, zc], [4, lane_g, zc], [4, lane_g, zf], [pg[0] + 4, lane_g, zf],
+                   [pg[0] + 4, pg[1], pg[2]], pg], "black");
+  }
+  // Mast feed -> spider
+  f3 = sp_pin(-1, 0); fg = sp_pin(1, 0);
+  wire([[mx[3], bar_h + 2, zm], [mx[3], y_s - 6.5, zc], [f3[0] - 3, y_s - 6.5, zc], [f3[0] - 3, f3[1], f3[2]], f3], "red");
+  wire([[mx[4], bar_h + 2, zm], [mx[4], y_s - 7.4, zc], [5, y_s - 7.4, zc], [5, y_s - 7.4, zf], [fg[0] + 3, y_s - 7.4, zf],
+        [fg[0] + 3, fg[1], fg[2]], fg], "black");
+  // Up the mast
+  mcol = concat(out_col, ["red", "black"]);
+  for (k = [0 : 4]) wire([[mx[k], bar_h + 2, zm], [mx[k], y_hb + 1, zm]], mcol[k]);
+
+  // In the head
+  hm = head_w / 2;
+  for (k = [0 : 2]) {          // OUTs -> GP4, GP5, GP6
+    e = esp_pin(0, 6 + k);
+    wire(Hs([[hm + mx[k], 1, zm], [hm + mx[k], 3.9, 3.6], [e[0], 3.9, 3.6], e]), out_col[k]);
+  }
+  for (r = [1, 0]) {           // mast 3V3 / GND -> Porcupine board
+    p = pwr_pin(r, 2);
+    wire(Hs([[hm + mx[r ? 3 : 4], 1, zm], [hm + mx[r ? 3 : 4], 3.9, zm], [36, 3.9, zm], [36, 3.9, head_top - 3],
+             [p[0], p[1], head_top - 3], p]), r ? "red" : "black");
+  }
+  for (r = [1, 0]) {           // ESP32 3V3 / GND -> Porcupine board
+    e = esp_pin(0, r ? 2 : 1); p = pwr_pin(r, 0);
+    wire(Hs([e, [e[0], 3.9, 3.4], [35, 3.9, 3.4], [35, 3.9, head_top - 4.5], [p[0], p[1], head_top - 4.5], p]), r ? "red" : "black");
+  }
+  for (r = [1, 0]) {           // LCD VCC / GND -> Porcupine board
+    l = lcd_pin(r ? 0 : 1); p = pwr_pin(r, 1);
+    wire(Hs([l, [l[0] + 3, l[1], l[2]], [36.5, 30, l[2]], [36.5, 30, head_top - 6], [p[0], p[1], head_top - 6], p]), r ? "red" : "saddlebrown");
+  }
+  sig = [[2, 4, "orange"], [3, 3, "yellow"], [4, 5, "green"], [5, 6, "purple"], [6, 7, "blue"], [7, 8, "gray"]];
+  for (s_ = sig) {             // LCD signals -> GP11, 12, 10, 9, 8, 7
+    l = lcd_pin(s_[0]); e = esp_pin(1, s_[1]); xl = 9 + s_[0] * 0.8;
+    wire(Hs([l, [xl, l[1], l[2]], [xl, l[1], 3.4], [xl, 19.45, 3.4], [e[0], 19.45, 3.4], e]), s_[2]);
+  }
 }
 
 module all_parts() {
   for (i = [0 : 2]) at_sensor(i) fc51();
   head_place() { lcd(); esp32(); pwr_board(); }
-  wire_bundle();
+  spider();
+  wires();
 }
 
 /* =================================================================== */
@@ -510,7 +646,7 @@ module sensor_test() {
   }
 }
 
-// ESP32 / power board test: the bottom strip of the head body
+// ESP32 / Porcupine board test: the bottom strip of the head body
 module esp_test() intersection() {
   head_body();
   box([-1, -1, -1], [head_w + 1, lcd_y0 - 1, head_top + 1]);

@@ -88,7 +88,7 @@ This test reuses every wire from the current Nano build (see the next section) a
 - **Display:** the ribbon stays plugged into the LCD.
 - **Sensor signals:** the three single wires move to GP4–6.
 - **Power:**
-  - The board has only one 3V3 pin and one GND pin, so power goes through the **power distribution board** (below).
+  - The board has only one 3V3 pin and one GND pin, so power goes through the **Porcupine board** (below).
   - One female-to-female jumper runs from each ESP32 power pin to its rail, and everything that needs power plugs into the rail.
   - The white sensor wire moves from the Nano's 5V to the **3V3 rail**.
 
@@ -109,7 +109,19 @@ This test reuses every wire from the current Nano build (see the next section) a
 
 Expected draw on 3V3 is roughly 100–150 mA (backlight plus three sensors), well within the regulator's rating.
 
-### Power distribution board
+### Spider board (case v2)
+
+In case v2, sensor power is split in the bar instead of the head, so only 5 wires go up the mast: 3 signals, 3V3 and GND.
+- **What it is:** a second helper board in the bar, the "spider board".
+- **Size:** 20 × 16.1 × 1.5 mm.
+- **Pins:** two rows of 5 right-angle pins, one row per rail, pointing out of opposite ends.
+- **3V3 row:** the mast's 3V3 plus each sensor's VCC.
+- **GND row:** the mast's GND plus each sensor's GND.
+- **The Porcupine board** in the head then feeds only the ESP32, the LCD and the mast.
+
+See [case/v2/README.md](../case/v2/README.md).
+
+### Porcupine board (power distribution)
 
 This is a small helper board that turns the ESP32's single 3V3 pin and single GND pin into two 6-pin rails.
 - **Construction:** a spare piece of prototype board, about 15 × 20 mm, with two mounting holes.
