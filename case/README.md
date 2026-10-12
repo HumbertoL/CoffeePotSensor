@@ -1,5 +1,7 @@
 # Case
 
+> **New:** [`v2/`](v2) is a redesigned case for the ESP32-S3-Zero build. It has a sensor bar, a mast, and a head with the screen about 12.5 in up. Everything below describes the **original** case, kept as a record.
+
 The current case is wall-mounted behind the coffee pots. It is about 44 cm wide, 2.7 cm deep and 18 cm tall at the display. It was originally designed in SolidWorks. [`scad/`](scad) is now the source of truth: an OpenSCAD conversion of that design. It reproduces the SolidWorks parts as they are, without redesigning anything. It was reverse-engineered from the STL exports and checked against them; see Accuracy below.
 
 The conversion makes two deliberate changes, listed under Changes from the SolidWorks design.

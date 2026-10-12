@@ -89,6 +89,20 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
 
 ## Case (`case/`)
 
+- **`case/v2/coffee_case_v2.scad` is the current case:** a sensor bar, mast and head, designed for the ESP32-S3-Zero. Its README lists the parts, print orientations, test prints, settings, and each measurement's confidence.
+- **Conventions in v2:**
+  - Frame: X right, Y up the wall, Z out of the wall.
+  - Bodies print back-down and covers print face-down (`face_down` rotates, never mirrors). No supports.
+  - Boards are held by posts, ledges and pockets plus the cover, not screws.
+  - Boards and wires are drawn only under `$preview && SHOW_PARTS`.
+- **Checks to rerun after changing it:**
+  - Overlaps between case parts and boards. Only the pins and the crush ribs should overlap.
+  - Downward-facing surfaces above the bed on each exported part.
+  - Bed fit (250 × 210 mm).
+  - That exports are byte-identical with `SHOW_PARTS` on and off.
+- **Testing modules from another file:** load it with `use <...>`. That makes the modules available, but **not** the top-level variables, so pass numbers in directly.
+- **The old case** (below) is the SolidWorks conversion, kept as a record.
+
 - The OpenSCAD files are the source of truth. The original SolidWorks files (`.SLDASM` / `.SLDPRT`, a closed binary format that can't be read here) and their STL exports were removed from the repo. They're kept in git history at commit `e428796`, and `git checkout e428796 -- case` restores them.
 - `case/scad/` is a verified OpenSCAD conversion: one file per part plus `assembly.scad`. See [case/README.md](case/README.md) for the parts, the coordinate frame and the accuracy table.
 - **STL and SolidWorks files are git-ignored.** Never commit them.
