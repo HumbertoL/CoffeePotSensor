@@ -8,7 +8,7 @@ The case has three parts:
 
 | Part | What it is |
 |---|---|
-| **Sensor bar** | About 417 × 21.4 × 19.9 mm, in 3 segments that lock together with dovetails. It holds the three FC-51 IR sensors, 203.2 mm apart, the same spacing as the old case, plus the **spider board** that splits power to them |
+| **Sensor bar** | About 417 × 21.4 × 16.8 mm, in 3 segments that lock together with dovetails. It holds the three FC-51 IR sensors, 203.2 mm apart, the same spacing as the old case, plus the **spider board** that splits power to them |
 | **Mast** | About 16 × 13.6 mm, in 2 printed pieces. It runs from the bar up to the head and carries **5 wires** (3 sensor signals, 3V3, GND) in a channel with a snap-on strip |
 | **Head** | About 63 × 61 × 32 mm. It holds the LCD, with the ESP32-S3-Zero and the Porcupine board below it. The USB-C opening faces left, toward the outlet |
 
@@ -45,11 +45,11 @@ The preview draws every wire along this route. See the wiring renders below.
 | Mast strip fit | **Fine** in the first `joint_test` |
 | Dovetails (`dt_clr` 0.05, `dt_rib` 0.15) | **Confirmed** in the second `joint_test` |
 | Mast socket (`sock_clr` 0.1) | **Confirmed** in the second `joint_test` |
-| Detection through the cover | Every cover that kept the LED tips inside read "present" all the time. **Now the tips stick out 1.5 mm through a slot** (`led_out`), like the old case. The bar is 4.5 mm shallower, so **reprint `sensor_test`** (body and cover) |
+| Detection through the cover | Tips 3 mm inside, then 1.5 mm out, both read "present" all the time. **Now the cover rests on the sensitivity screw and the LEDs stick out 4.6 mm**, close to the old case (board taped flat to the front). The bar is 3.1 mm shallower again, so **reprint `sensor_test`** (body and cover) |
 | Head (window, ESP32 supports, Porcupine fences, LCD pins), spider board holder | Not printed yet. All low-risk; print the real parts |
 
 **Next:**
-1. Reprint `sensor_test` and check detection with the firmware's `SENSOR_TEST` on. If it still reads "present", raise `led_out`.
+1. Reprint `sensor_test` and check detection with the firmware's `SENSOR_TEST` on. If it still reads "present", try it with the sensitivity turned down; the cover can't come any closer to the board.
 2. Print the full set (12 parts). They fit on one MK4S plate, as `stl/plate_layout.scad` shows, or can be split into a bar batch and a mast + head batch.
 3. Assemble, then tune anything left from the open questions below.
 
@@ -83,7 +83,7 @@ These follow the office_ac_controller approach: print the parts that are easy to
    - the LED tips stick out through the cover's slot;
    - with the sensor wired up, it reads "absent" with nothing in front and "present" with a pot. Set `SENSOR_TEST` to 1 in `CoffeePotSensor.ino` so the screen follows the sensor with no delay;
    - the cover presses on with friction and its ring clamps the board;
-   - a screwdriver reaches the sensitivity screw through the tuning hole.
+   - the cover's inside rests on the sensitivity screw, and a screwdriver reaches the screw through the tuning hole.
 2. **`head_cover`** (small and quick): hold it over the LCD, with the LCD resting on a flat surface glass-up. Check that the window frames the lit image and that the screw-head reliefs line up.
 3. **`esp_test`:** the bottom strip of the head body. Check that the ESP32 drops onto its two end supports, with the USB-C at the left wall, and that the Porcupine board snaps between its corner fences.
 
@@ -152,7 +152,7 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 |---|---|---|
 | `screen_h` | 317.5 (12.5 in) | Center sensor's LEDs to the bottom of the visible image |
 | `velcro_w` | 20 | The bar is at least this tall |
-| `led_out` | 1.5 | How far the LED tips stick out past the front face, through one slot over both LEDs. It sets the bar's depth |
+| `pot_gap` | 0 | Gap between the sensitivity screw's top and the cover's inside. It sets the bar's depth, and so how far the LEDs stick out through their slot (`led_out`, 4.6 mm at 0) |
 | `clr` | 0.3 | General clearance per side |
 | `cover_clr`, `rib`, `rib_pitch` | 0.1, 0.35, 20 | Cover fit: the gap between the lip and the body, how far the crush ribs stand out, and their spacing. Too tight: lower `rib`. Too loose: raise it, or lower `rib_pitch` |
 | `dt_clr`, `dt_rib` | 0.05, 0.15 | Dovetail clearance per side, and the crush rib on each slanted side of a tab (0.1 mm interference) |
@@ -201,7 +201,8 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 - **Result:** the sensor read "present" all the time. Without a cover (the old case's open window) it works.
 - **Likely cause:** PLA passes IR. The emitter's light went into the web right next to it and came out next to the receiver.
 - **Second try (`ir_test`):** a slot over both LEDs, and a tube around each LED nearly to the board. Both still read "present" all the time, so the IR was reflecting inside the cover, not only crossing the web.
-- **Fix:** the LED tips now stick out 1.5 mm past the front face through the slot (`led_out`), as they did in the old case, which worked. The bar is 4.5 mm shallower as a result.
+- **Third try:** the LED tips 1.5 mm out through the slot. Still "present" all the time.
+- **Fix:** the cover now rests on the sensitivity screw (the screw's guide tube is gone; the tuning hole goes straight through the front), so the LEDs stick out 4.6 mm. That's close to the old case, where the board was taped flat against the front with the LEDs jammed through the hole. The bar is now 16.8 mm deep.
 
 **`joint_test`, second print (`dt_clr` 0.05 + `dt_rib` 0.15, `sock_clr` 0.1):** much better fit on both dovetails and the socket. These joint settings are confirmed.
 - **Alignment:** the cover and body should line up end to end. The test piece has no lip at its cut ends, so a loose cover can slide lengthwise. The full bar's end segments have lips at their outer ends.

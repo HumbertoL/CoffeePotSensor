@@ -71,10 +71,12 @@ dupont_l  = 14.5;
 sensor_flip = [true, false, false]; // left sensor turned 180° so its header faces the center
 
 led_clr   = 0.2;   // LED hole clearance per side
-// The LED tips stick out through one slot in the cover, like the old case's window.
-// Covers that sat the tips behind the front face (3 mm deep holes or slot, or tubes
-// around each LED) read "present" all the time: the IR reflected inside the cover.
-led_out   = 1.5;   // LED tips stick out this far past the front face
+// The LEDs stick well out through one slot in the cover, like the old case, where the
+// board was taped flat against the front. The cover's inside rests on the sensitivity
+// screw, so the LEDs stick out fc_led_h - screw height - plate (about 4.6 mm).
+// Covers with less sticking out read "present" all the time: the IR reflected off the
+// cover (tips 3 mm inside, then tips 1.5 mm out).
+pot_gap   = 0;     // gap between the screw's top and the cover's inside
 tune_d    = 4.0;   // tuning hole for the sensitivity screw
 channel   = 5.0;   // wire channel behind the sensor boards
 post_d    = 5.0;   // post under the board's mounting hole (keep it clear of solder joints)
@@ -144,7 +146,8 @@ y_s     = bar_h / 2;                         // LED midpoint height
 z_board = wall + channel + fc_back;          // PCB back face
 z_btop  = z_board + fc_t;                    // PCB component face
 z_tip   = z_btop + fc_led_h;                 // LED tips
-bar_d   = z_tip - led_out;                   // front face
+bar_d   = z_btop + fc_pot_sz[2] + pot_gap + plate;   // front face
+led_out = z_tip - bar_d;                     // how far the LED tips stick out
 bar_top = bar_d - plate;                     // top of the body walls
 
 sx = [-sensor_spacing, 0, sensor_spacing];
@@ -192,7 +195,7 @@ mast_y1 = y_hb;
 mast_ys = (mast_y0 + mast_y1) / 2;             // joint between the two mast pieces
 strip_ys = mast_ys + strip_over;
 
-echo(str("Bar ", bar_x1 - bar_x0, " x ", bar_h, " x ", bar_d, " mm (segments ",
+echo(str("Bar ", bar_x1 - bar_x0, " x ", bar_h, " x ", bar_d, " mm, LEDs stick out ", led_out, " mm (segments ",
          -joint - bar_x0, " / ", 2 * joint, " / ", bar_x1 - joint, ")"));
 echo(str("Head ", head_w, " x ", head_h, " x ", head_d, " mm; mast ", mast_y1 - mast_y0,
          " mm in two ", (mast_y1 - mast_y0) / 2, " mm pieces"));
@@ -285,7 +288,8 @@ module bar_body(i) {
     if (i != 1) translate([i == 0 ? x1 : x0, bar_h / 2, -1]) rotate([0, 0, i == 0 ? 180 : 0])
       translate([-0.01, 0, 0]) linear_extrude(wall + 2) dovetail_2d(bar_dt[0], bar_dt[1], bar_dt[2] + dt_clr + 0.01, dt_clr);
     // Wire opening up into the mast
-    if (i == 1) gable_hole(0, mast_in_w / 2 - 0.5, wall, 8, bar_h - wall - 1, bar_h + 1);
+    // (its peak stays below the rebate, so the rebate's step doesn't overhang it)
+    if (i == 1) gable_hole(0, mast_in_w / 2 - 0.5, wall, min(8, bar_top - lip_h - 0.5 - (mast_in_w / 2 - 0.5)), bar_h - wall - 1, bar_h + 1);
   }
   rebate_ribs(x0, x1, bar_h, bar_top, cl, cr);
 
@@ -324,7 +328,6 @@ module bar_cover(i) {
   cl = i == 0; cr = i == 2;
   bore = fc_led_d + 2 * led_clr;
   ring_z0 = z_btop + 0.2;
-  pot_top = z_btop + fc_pot_sz[2];
   difference() {
     union() {
       box([x0, 0, bar_top], [x1, bar_h, bar_d]);
@@ -333,8 +336,6 @@ module bar_cover(i) {
       intersection() {
         box([cl ? x0 + wall + cover_clr : x0 - 1, wall + cover_clr, 0], [cr ? x1 - wall - cover_clr : x1 + 1, bar_h - wall - cover_clr, bar_d]);
         at_sensor(i) {
-        // Guide tube over the sensitivity screw
-        translate(concat(P(fc_pot), [pot_top + 0.5])) cylinder(d = tune_d + 2.4, h = bar_top - pot_top - 0.49);
         // Ring that presses the board onto its post
         translate(concat(P(fc_hole), [ring_z0])) cylinder(d = 6, h = bar_top - ring_z0 + 0.01);
         }
@@ -557,7 +558,7 @@ module wire(pts, col, d = 1.4) color(col) for (i = [0 : len(pts) - 2])
 // Every wire, along its planned route
 module wires() {
   zc = wall + 2;        // channel behind the sensor boards
-  zf = 15;              // in front, to pass over the spider board
+  zf = bar_top - 1.5;   // in front, to pass over the spider board
   out_col = ["blue", "yellow", "teal"];
   mx = [-3, -1.5, 0, 1.5, 3];   // positions in the mast: 3 OUTs, 3V3, GND
   zm = mast_back + 3;
