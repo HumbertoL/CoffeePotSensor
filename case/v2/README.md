@@ -45,13 +45,12 @@ The preview draws every wire along this route. See the wiring renders below.
 | Mast strip fit | **Fine** in the first `joint_test` |
 | Dovetails (`dt_clr` 0.05, `dt_rib` 0.15) | **Confirmed** in the second `joint_test` |
 | Mast socket (`sock_clr` 0.1) | **Confirmed** in the second `joint_test` |
-| Detection through the cover | Tips 3 mm inside, then 1.5 mm out, both read "present" all the time. **Now the cover rests on the sensitivity screw and the LEDs stick out 4.6 mm**, close to the old case (board taped flat to the front). The bar is 3.1 mm shallower again, so **reprint `sensor_test`** (body and cover) |
+| Detection through the cover | **Works** with the cover resting on the sensitivity screw and the LEDs sticking out 4.6 mm (`pot_gap` 0). Earlier covers, with the tips 3 mm inside or 1.5 mm out, read "present" all the time |
 | Head (window, ESP32 supports, Porcupine fences, LCD pins), spider board holder | Not printed yet. All low-risk; print the real parts |
 
 **Next:**
-1. Reprint `sensor_test` and check detection with the firmware's `SENSOR_TEST` on. If it still reads "present", try it with the sensitivity turned down; the cover can't come any closer to the board.
-2. Print the full set (12 parts). They fit on one MK4S plate, as `stl/plate_layout.scad` shows, or can be split into a bar batch and a mast + head batch.
-3. Assemble, then tune anything left from the open questions below.
+1. Print the full set (12 parts). They fit on one MK4S plate, as `stl/plate_layout.scad` shows, or can be split into a bar batch and a mast + head batch.
+2. Assemble, then tune anything left from the open questions below.
 
 ## Parts and printing
 
@@ -202,7 +201,7 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 - **Likely cause:** PLA passes IR. The emitter's light went into the web right next to it and came out next to the receiver.
 - **Second try (`ir_test`):** a slot over both LEDs, and a tube around each LED nearly to the board. Both still read "present" all the time, so the IR was reflecting inside the cover, not only crossing the web.
 - **Third try:** the LED tips 1.5 mm out through the slot. Still "present" all the time.
-- **Fix:** the cover now rests on the sensitivity screw (the screw's guide tube is gone; the tuning hole goes straight through the front), so the LEDs stick out 4.6 mm. That's close to the old case, where the board was taped flat against the front with the LEDs jammed through the hole. The bar is now 16.8 mm deep.
+- **Fourth try (works):** the cover rests on the sensitivity screw (the screw's guide tube is gone; the tuning hole goes straight through the front), so the LEDs stick out 4.6 mm. That's close to the old case, where the board was taped flat against the front with the LEDs jammed through the hole. The bar is now 16.8 mm deep.
 
 **`joint_test`, second print (`dt_clr` 0.05 + `dt_rib` 0.15, `sock_clr` 0.1):** much better fit on both dovetails and the socket. These joint settings are confirmed.
 - **Alignment:** the cover and body should line up end to end. The test piece has no lip at its cut ends, so a loose cover can slide lengthwise. The full bar's end segments have lips at their outer ends.

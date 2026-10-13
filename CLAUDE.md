@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots has been sitting on its burner and shows it on a Waveshare 2" ST7789 SPI LCD. It supports two boards from the same code. Pins and SPI setup are chosen with `#if defined(ARDUINO_ARCH_ESP32)`.
+Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots has been sitting on the rack (the pots sit on a rack, not a burner) and shows it on a Waveshare 2" ST7789 SPI LCD. It supports two boards from the same code. Pins and SPI setup are chosen with `#if defined(ARDUINO_ARCH_ESP32)`.
 - **Arduino Nano** (ATmega328P, 2 KB SRAM, 32 KB flash). This is the original target and the tightest constraint.
 - **Waveshare ESP32-S3-Zero** (ESP32-S3FH4R2, 3.3 V). This is the planned replacement.
 

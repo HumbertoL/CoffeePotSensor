@@ -73,13 +73,13 @@ See [docs/HARDWARE.md](docs/HARDWARE.md) for full part details, sensor notes, po
 | Dark   | D3           |
 | Decaf  | D4           |
 
-Each sensor must pull its pin **LOW when a pot is on the burner** and HIGH when it isn't. Any digital sensor that does this will work, such as an IR proximity module or a microswitch to GND.
+Each sensor must pull its pin **LOW when a pot is on the rack** and HIGH when it isn't. Any digital sensor that does this will work, such as an IR proximity module or a microswitch to GND.
 
 The pins are configured as plain `INPUT`, with no internal pull-up. If you use a bare switch, either add an external pull-up resistor (about 10 kΩ to 5V) or change `pinMode` to `INPUT_PULLUP` in `CoffeePotSensor.ino`.
 
-The timer resets whenever a pot goes from *removed* to *present*. After a power cycle there's no way to know how old a pot already on the burner is, so it shows **Unknown** until it's removed and put back. A pot that's absent at power-on is treated as fresh when it's placed.
+The timer resets whenever a pot goes from *removed* to *present*. After a power cycle there's no way to know how old a pot already on the rack is, so it shows **Unknown** until it's removed and put back. A pot that's absent at power-on is treated as fresh when it's placed.
 
-If no pot is placed or removed for **48 hours**, which in an office means the weekend, the device restarts itself to clear out any long-running state. Any pot still on the burner shows **Unknown** afterwards.
+If no pot is placed or removed for **48 hours**, which in an office means the weekend, the device restarts itself to clear out any long-running state. Any pot still on the rack shows **Unknown** afterwards.
 
 ---
 

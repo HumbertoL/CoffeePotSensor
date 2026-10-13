@@ -231,6 +231,6 @@ The sensors only produce three on/off signals, so the rod needs **one 5-wire cab
 
 ## Firmware behavior that depends on the hardware
 
-- **Power-on:** a pot already on the burner at power-on shows **Unknown**. Its timer starts the next time it's put back.
+- **Power-on:** a pot already on the rack at power-on shows **Unknown**. Its timer starts the next time it's put back.
 - **Idle restart:** with no pot activity for 48 h (a weekend), the device restarts itself.
 - **ESP32 watchdog:** the ESP32 also has a hardware watchdog that reboots it if the firmware hangs.
