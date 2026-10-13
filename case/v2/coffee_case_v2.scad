@@ -26,7 +26,6 @@
 //     "head", "head_cover"                                     head body (back) and cover (face down)
 //   Test prints:
 //     "sensor_test"   a piece of the center bar around its sensor, plus its cover
-//     "ir_test"       two sensor_test covers to compare: led_window "slot" and "tubes"
 //     "esp_test"      the bottom strip of the head: ESP32 and Porcupine board mounts
 //     "joint_test"    the bar dovetail, the mast socket, the mast dovetail and a strip, all in one print
 //     "joint_test_view"  the joint_test pieces fitted together (EXPLODE pulls them apart)
@@ -72,16 +71,10 @@ dupont_l  = 14.5;
 sensor_flip = [true, false, false]; // left sensor turned 180° so its header faces the center
 
 led_clr   = 0.2;   // LED hole clearance per side
-hood      = 3.0;   // LED tips sit this far behind the front face
-hood_wall = 1.0;
-// How the cover opens over the LEDs:
-//   "slot"   one open slot over both LEDs, with no plastic between them (like the old case's window)
-//   "tubes"  a separate tube around each LED, down to tube_gap above the board.
-//            PLA passes IR, so this only isolates the LEDs when printed in black or another dark color.
-// The first design (short bores with a shared web, 3 mm deep) read "present" all the time:
-// the emitter's light crossed through the web into the receiver.
-led_window = "slot";
-tube_gap  = 3.0;   // "tubes": gap above the board, clears the LEDs' base rims
+// The LED tips stick out through one slot in the cover, like the old case's window.
+// Covers that sat the tips behind the front face (3 mm deep holes or slot, or tubes
+// around each LED) read "present" all the time: the IR reflected inside the cover.
+led_out   = 1.5;   // LED tips stick out this far past the front face
 tune_d    = 4.0;   // tuning hole for the sensitivity screw
 channel   = 5.0;   // wire channel behind the sensor boards
 post_d    = 5.0;   // post under the board's mounting hole (keep it clear of solder joints)
@@ -151,7 +144,7 @@ y_s     = bar_h / 2;                         // LED midpoint height
 z_board = wall + channel + fc_back;          // PCB back face
 z_btop  = z_board + fc_t;                    // PCB component face
 z_tip   = z_btop + fc_led_h;                 // LED tips
-bar_d   = z_tip + hood;                      // front face
+bar_d   = z_tip - led_out;                   // front face
 bar_top = bar_d - plate;                     // top of the body walls
 
 sx = [-sensor_spacing, 0, sensor_spacing];
@@ -326,7 +319,7 @@ module bar_body(i) {
   }
 }
 
-module bar_cover(i, win = led_window) {
+module bar_cover(i) {
   x0 = seg_x[i][0]; x1 = seg_x[i][1];
   cl = i == 0; cr = i == 2;
   bore = fc_led_d + 2 * led_clr;
@@ -336,13 +329,10 @@ module bar_cover(i, win = led_window) {
     union() {
       box([x0, 0, bar_top], [x1, bar_h, bar_d]);
       cover_lip(x0, x1, bar_h, bar_top, cl, cr);
-      // Clipped to the inside of the bar: near an end wall, the wall itself is the hood
+      // Clipped to the inside of the bar
       intersection() {
         box([cl ? x0 + wall + cover_clr : x0 - 1, wall + cover_clr, 0], [cr ? x1 - wall - cover_clr : x1 + 1, bar_h - wall - cover_clr, bar_d]);
         at_sensor(i) {
-        // "tubes": a tube around each LED, with a web between them
-        if (win == "tubes") for (p = [fc_em, fc_rx]) translate(concat(P(p), [z_btop + tube_gap]))
-          cylinder(d = bore + 2 * hood_wall, h = bar_top - z_btop - tube_gap + 0.01);
         // Guide tube over the sensitivity screw
         translate(concat(P(fc_pot), [pot_top + 0.5])) cylinder(d = tune_d + 2.4, h = bar_top - pot_top - 0.49);
         // Ring that presses the board onto its post
@@ -353,11 +343,8 @@ module bar_cover(i, win = led_window) {
       if (i == 1) translate([sp_x0 + sp[0] / 2, y_s, z_sp0 + sp[2] + 0.2]) cylinder(d = 4, h = bar_top - z_sp0 - sp[2] - 0.19);
     }
     at_sensor(i) {
-      if (win == "tubes") for (p = [fc_em, fc_rx]) translate(concat(P(p), [z_btop + tube_gap - 1])) {
-        cylinder(d = bore, h = bar_d);
-        translate([0, 0, 1 - 0.01]) cylinder(d1 = bore + 1.2, d2 = bore, h = 0.6);   // lead-in
-      }
-      else hull() for (p = [fc_em, fc_rx]) translate(concat(P(p), [bar_top - 1])) cylinder(d = bore, h = bar_d);
+      // One slot for both LEDs, with no plastic between them
+      hull() for (p = [fc_em, fc_rx]) translate(concat(P(p), [bar_top - 1])) cylinder(d = bore, h = bar_d);
       translate(concat(P(fc_pot), [0])) cylinder(d = tune_d, h = bar_d + 1);
       translate(concat(P(fc_hole), [ring_z0 - 1])) cylinder(d = 3.6, h = bar_top - ring_z0 + 1);
     }
@@ -674,20 +661,6 @@ module sensor_test() {
   }
 }
 
-// IR test: two sensor_test covers, one per led_window option, labeled on the inside.
-// Both fit the sensor_test body.
-module ir_test() {
-  xa = -fc_mid[0] - dupont_l / 2 - 6; xb = fc_l - fc_mid[0] + 6;
-  for (k = [0, 1]) translate([-xa, k * (bar_h + 8), 0]) face_down(bar_d) difference() {
-    intersection() {
-      bar_cover(1, k == 0 ? "slot" : "tubes");
-      box([xa, -1, -1], [xb, bar_h + 1, bar_d + 1]);
-    }
-    translate([xa + 2, y_s, bar_top - 1]) linear_extrude(1.5) mirror([0, 1, 0])
-      text(k == 0 ? "SLOT" : "TUBES", size = 3.5, halign = "left", valign = "center", font = "Liberation Sans:style=Bold");
-  }
-}
-
 // Joint test: short pieces cut from the real parts, laid out in a row.
 //   1, 2  the center segment's end (dovetail tab) and the left segment's end (notch)
 //   3     the middle of the center segment: mast socket cheeks and wire opening
@@ -750,7 +723,6 @@ else if (PART == "mast_strip_upper") face_down(mast_d) translate([0, -strip_ys, 
 else if (PART == "head") translate([0, cheek_h, 0]) head_body();
 else if (PART == "head_cover") face_down(head_d) head_cover();
 else if (PART == "sensor_test") sensor_test();
-else if (PART == "ir_test") ir_test();
 else if (PART == "esp_test") esp_test();
 else if (PART == "joint_test") joint_test();
 else if (PART == "joint_test_view") joint_test_view();
