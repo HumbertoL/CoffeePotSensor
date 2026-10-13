@@ -43,13 +43,13 @@ The preview draws every wire along this route. See the wiring renders below.
 | Sensor placement (`sensor_test`) | **Done.** The holes line up with the LEDs and the sensitivity screw, and the post's pin holds the board |
 | Cover fit (`cover_clr` 0.1, `rib` 0.35, `rib_pitch` 20) | **Confirmed:** snug friction fit. This also applies to the head cover and the mast strips |
 | Mast strip fit | **Fine** in the first `joint_test` |
-| Dovetails (`dt_clr`, `dt_rib`) | Loose in the first `joint_test`. Tightened to 0.05 + ribs; **the user is reprinting `joint_test`** |
-| Mast socket (`sock_clr`) | Loose in the first `joint_test`. Tightened to 0.1; **in the same reprint** |
-| Detection through the 3 mm LED hood | **Not checked yet.** Wire up the sensor test piece and try it with a pot (`hood` can be shortened) |
+| Dovetails (`dt_clr` 0.05, `dt_rib` 0.15) | **Confirmed** in the second `joint_test` |
+| Mast socket (`sock_clr` 0.1) | **Confirmed** in the second `joint_test` |
+| Detection through the cover | **Failed with the first cover:** it read "present" all the time. Now `led_window` "slot" (default) or "tubes"; **`ir_test` prints one cover of each** to try on the `sensor_test` body |
 | Head (window, ESP32 supports, Porcupine fences, LCD pins), spider board holder | Not printed yet. All low-risk; print the real parts |
 
 **Next:**
-1. Get the `joint_test` reprint results and adjust `dt_rib` / `sock_clr` if needed.
+1. Print `ir_test` and try both covers on the `sensor_test` body with the firmware's `SENSOR_TEST` on. Set `led_window` to the one that works (only the bar covers depend on it).
 2. Print the full set (12 parts). They fit on one MK4S plate, as `stl/plate_layout.scad` shows, or can be split into a bar batch and a mast + head batch.
 3. Assemble, then tune anything left from the open questions below.
 
@@ -80,7 +80,7 @@ These follow the office_ac_controller approach: print the parts that are easy to
 
 1. **`sensor_test`:** a 50 mm piece of the center bar segment around its sensor, plus the matching piece of its cover. Check that:
    - the post's pin goes through the board's 3 mm hole, and the post doesn't sit on solder joints;
-   - the LEDs enter their bores;
+   - the LEDs fit through the cover's LED opening;
    - the cover presses on with friction and its ring clamps the board;
    - a screwdriver reaches the sensitivity screw through the tuning hole.
 2. **`head_cover`** (small and quick): hold it over the LCD, with the LCD resting on a flat surface glass-up. Check that the window frames the lit image and that the screw-head reliefs line up.
@@ -92,6 +92,8 @@ These follow the office_ac_controller approach: print the parts that are easy to
    - **Mast pieces:** a short lower piece, which plugs into the socket and has the dovetail notch on top, and a short upper piece with the tab.
    - **Mast strip:** a short strip that should press onto the lower piece.
    - **Too tight or too loose:** adjust `dt_clr` for the dovetails, `clr` for the socket, and `rib` for the strip.
+
+5. **`ir_test`:** two more covers for the `sensor_test` body, labeled inside: **SLOT** (one open slot over both LEDs) and **TUBES** (a tube around each LED, down to 3 mm above the board). With the sensor wired up, each should read "absent" with nothing in front and "present" with a pot. Set `SENSOR_TEST` to 1 in `CoffeePotSensor.ino` so the screen follows the sensor with no delay.
 
 The spider board's holder isn't in any test piece. It sits between the bar's walls (0.25 mm to spare on each side), on four corner feet, between two end stops. The center cover has a post that presses on its empty middle.
 
@@ -150,7 +152,9 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 |---|---|---|
 | `screen_h` | 317.5 (12.5 in) | Center sensor's LEDs to the bottom of the visible image |
 | `velcro_w` | 20 | The bar is at least this tall |
-| `hood` | 3 | How far the LED tips sit behind the front face. The bores act as hoods against side reflections |
+| `hood` | 3 | How far the LED tips sit behind the front face |
+| `led_window` | "slot" | The cover's opening over the LEDs: "slot" (one opening, no plastic between the LEDs) or "tubes" (a tube per LED, only opaque in dark PLA) |
+| `tube_gap` | 3 | "tubes": how far above the board the tubes stop, to clear the LEDs' base rims |
 | `clr` | 0.3 | General clearance per side |
 | `cover_clr`, `rib`, `rib_pitch` | 0.1, 0.35, 20 | Cover fit: the gap between the lip and the body, how far the crush ribs stand out, and their spacing. Too tight: lower `rib`. Too loose: raise it, or lower `rib_pitch` |
 | `dt_clr`, `dt_rib` | 0.05, 0.15 | Dovetail clearance per side, and the crush rib on each slanted side of a tab (0.1 mm interference) |
@@ -176,7 +180,7 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 | LCD header | Straight pins pointing back, 2.3 mm from the left edge (front view) | Photo | ±0.5 mm |
 | Behind the LCD, ESP32 and Porcupine board | 24 mm for header, jumpers and bend | User | High |
 | ESP32-S3-Zero | 18 × 23.5 × 1.7 mm; USB-C 1 mm past the edge and 3 mm tall | Calipers | High |
-| Porcupine board | about 15 × 20 mm | User | ±0.5 mm |
+| Porcupine board | 13.8 mm across the pin rows (calipers) × about 20 mm | User | Width ±0.1 mm, length ±0.5 mm |
 | Spider board | 20 × 16.1 × 1.5 mm. Right-angle pin rows 4 mm in from each end; 7 mm from the solder's bottom to the top of the pins' bend; pins 8 mm long past the bend | User | High (the 1 mm solder height is assumed) |
 | Mat grid square | 7.9 mm | office_ac_controller (ruler) | High |
 
@@ -192,6 +196,15 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 **`joint_test`, first print:**
 - **Result:** both dovetails were loose (`dt_clr` 0.15, no ribs), and the mast was loose in its socket (0.3 mm clearance, so the ribs barely touched).
 - **Fix:** `dt_clr` 0.05 plus a crush rib on each slanted side of every tab (`dt_rib` 0.15), and a separate socket clearance `sock_clr` 0.1. Reprint `joint_test` to check.
+
+**Porcupine board fences:** too much room. The board was modeled 15 mm wide; it measures 13.8 mm across the pin rows. `pwr` is now [20, 13.8, 1.6].
+
+**Detection, first cover (`sensor_test`, 3 mm deep bores with a shared 2.2 mm web between the LEDs):**
+- **Result:** the sensor read "present" all the time. Without a cover (the old case's open window) it works.
+- **Likely cause:** PLA passes IR. The emitter's light went into the web right next to it and came out next to the receiver.
+- **Fix:** `led_window`. "slot" removes everything between the LEDs, like the old window. "tubes" covers more of each LED, but only blocks IR in dark filament. `ir_test` has one of each.
+
+**`joint_test`, second print (`dt_clr` 0.05 + `dt_rib` 0.15, `sock_clr` 0.1):** much better fit on both dovetails and the socket. These joint settings are confirmed.
 - **Alignment:** the cover and body should line up end to end. The test piece has no lip at its cut ends, so a loose cover can slide lengthwise. The full bar's end segments have lips at their outer ends.
 
 ## Open questions for the first prints
@@ -199,5 +212,4 @@ The boards, LEDs, jumpers and wires are drawn only in preview (F5) when `SHOW_PA
 - **Solder joints:** whether the 5 mm post under each FC-51 lands clear of the solder joints around its mounting hole. If not, lower `post_d`.
 - **ESP32 USB end:** whether the support under the USB-C end hits through-hole tabs from the USB connector. If it does, shorten that support (`esp_jaw`) or lower it slightly.
 - **Window position:** whether the screen window lines up with the lit image (`lcd_img_dx`, `win_margin`).
-- **Cover and dovetail fit:** `rib` and `dt_clr`.
 - **Standoff pins:** whether the 1.5 mm pins on the LCD posts fit the standoffs' threaded bores.

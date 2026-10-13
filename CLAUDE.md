@@ -48,6 +48,7 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
     - On a confirmed placement it sets `timeKnown = true` and `placedAt = rawChangedAt`, the moment the reading first changed rather than when the debounce finished.
     - `present` is the debounced state; `rawPresent` is the latest reading.
   - `drawPotStatus`: `formatStatus` builds the status text, padded to `STATUS_CHARS` (20) characters. The line is redrawn only when that text differs from `pot.shown`, which is what's currently on screen.
+- **`SENSOR_TEST`** (top of the `.ino`): when set to 1, there is no debounce, so the screen follows the raw sensor reading, and each change is logged to Serial. It's for checking sensors and case prints. **It must be 0 in commits.**
 - At power-on, `setup()` records which pots are already present. Those pots show `Last brew: Unknown` until they are removed and put back. A pot that is absent at boot shows `Removed`, and its timer starts when it is placed.
 - **Idle restart.** If no pot is placed or removed for `IDLE_RESTART_MS` (48 h), `restart()` restarts the sketch. In an office this happens over the weekend. Any present/removed edge on any pot updates `lastActivity`, and boot counts as activity.
   - On AVR, `restart()` uses `jmp 0`, a jump to the reset vector. This re-runs C startup, so globals and `millis()` start over, and then `setup()` runs again.

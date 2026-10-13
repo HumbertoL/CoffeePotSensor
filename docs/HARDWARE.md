@@ -124,7 +124,7 @@ See [case/v2/README.md](../case/v2/README.md).
 ### Porcupine board (power distribution)
 
 This is a small helper board that turns the ESP32's single 3V3 pin and single GND pin into two 6-pin rails.
-- **Construction:** a spare piece of prototype board, about 15 × 20 mm, with two mounting holes.
+- **Construction:** a spare piece of prototype board, 13.8 mm wide (across the pin rows) × about 20 mm long, with two mounting holes.
 - **Pins:** two rows of 6 male header pins on the top side.
 - **Rails:** on the bottom, each row is soldered together into one rail, 3V3 or GND. All the wires already end in Dupont female housings, so nothing has to be cut.
 

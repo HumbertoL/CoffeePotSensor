@@ -15,8 +15,16 @@
 #endif
 #define REFRESH_INTERVAL 100UL  // ms between sensor polls
 #define STATUS_CHARS 20         // status text is padded to this width so it fully overwrites the previous text
+// Sensor test mode: set to 1 to show raw readings with no debounce and log each change to Serial.
+// For checking a sensor or case print; set it back to 0 for normal use.
+#define SENSOR_TEST 0
+#if SENSOR_TEST
+#define PLACE_DEBOUNCE_MS 0UL
+#define REMOVE_DEBOUNCE_MS 0UL
+#else
 #define PLACE_DEBOUNCE_MS 1000UL   // sensor must read "present" this long before a pot counts as placed
 #define REMOVE_DEBOUNCE_MS 3000UL  // ...or "absent" this long before it counts as removed (ignores IR flicker)
+#endif
 #define IDLE_RESTART_MS (48UL * 60 * 60 * 1000)  // restart after this long with no pot activity (e.g. over a weekend)
 
 #define COLOR_TEXT 0xC618  // light gray
@@ -123,6 +131,10 @@ void updatePotStatus(CoffeePot& pot, unsigned long now) {
   if (raw != pot.rawPresent) {
     pot.rawPresent = raw;
     pot.rawChangedAt = now;
+#if SENSOR_TEST
+    Serial.print(pot.name);
+    Serial.println(raw ? F(": present") : F(": absent"));
+#endif
   }
 
   // Only accept a change once the reading has held steady long enough
