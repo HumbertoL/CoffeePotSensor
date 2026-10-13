@@ -136,6 +136,37 @@ arduino-cli upload  --fqbn esp32:esp32:waveshare_esp32_s3_zero -p <port> .
 - A hardware watchdog reboots the board if it ever hangs.
 - The SPI bus runs at 20 MHz, so the screen redraws faster.
 - There's more breathing room for fun features.
+- It can publish to ThingSpeak over Wi-Fi (below).
+
+### 📡 Publishing to ThingSpeak
+
+On the ESP32, the board can send each pot's state to ThingSpeak channel **3533214**.
+
+**Setup:**
+1. Copy the template and fill in the Wi-Fi name and password, plus the channel's **Write API Key** (ThingSpeak → the channel → API Keys):
+   ```bash
+   cp secrets.example.h secrets.h
+   ```
+   `secrets.h` is gitignored. Without it the sketch still builds, with publishing off.
+2. In the channel's settings, turn on **Field 1–3** and name them Medium, Dark and Decaf. ThingSpeak silently drops fields that aren't turned on.
+3. Flash the board. The serial monitor shows `[thingspeak] entry N` for each accepted entry.
+
+**What's sent:** one entry at boot and one each time a pot is placed or removed (after the debounce). Each entry has all three pots:
+
+| Field | Pot | Value |
+|---|---|---|
+| `field1` | Medium | The Unix time (UTC seconds) the pot was placed. **0** if it's there but its age is unknown (it was already there at power-on). **-1** if it's removed |
+| `field2` | Dark | Same |
+| `field3` | Decaf | Same |
+| `status` | | What changed, like `Dark placed`, or `Started` at boot |
+
+The age of a pot is the entry's time minus its field. For example, the latest Dark value is at `https://api.thingspeak.com/channels/3533214/fields/2/last.json` (add `?api_key=<Read API Key>` if the channel is private).
+
+**Notes:**
+- Sending runs in its own task, so a slow or missing network never holds up the screen or the sensors.
+- ThingSpeak's free plan takes one update every 15 s. Changes that come faster are merged into one entry, with both notes in `status`. Failed sends are retried every 30 s.
+- The connection is HTTPS, checked against the root certificates in `thingspeak_root_ca.h`. The clock comes from NTP (`pool.ntp.org`), so the network has to allow it.
+- `SENSOR_TEST` mode publishes nothing.
 
 ---
 

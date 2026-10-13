@@ -24,13 +24,17 @@ CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/
 - The sketch folder name must match `CoffeePotSensor.ino`. Arduino compiles every `.cpp` in the folder automatically.
 - Baseline:
   - Nano: about 17.8 KB flash (57%) and 645 B globals (31%).
-  - ESP32-S3: about 324 KB flash (24%) and 22.7 KB globals (6%). Check the compile output after every change and watch RAM closely.
+  - ESP32-S3: about 324 KB flash (24%) and 22.7 KB globals (6%) without `secrets.h`. With it (Wi-Fi, HTTPS), about 1.04 MB (79%) and 47 KB (14%). Check the compile output after every change and watch RAM closely.
+- **Never commit credentials.** They go only in `secrets.h`. Before committing, read the staged diff and check that no SSID, password or API key is in it, including in `secrets.example.h`.
 
 ## Layout
 
 | File | Owner | Purpose |
 |---|---|---|
 | `CoffeePotSensor.ino` | **ours** | All app logic: `CoffeePot` struct, sensor polling, drawing |
+| `publish.h/.cpp` | **ours** | ThingSpeak publishing (ESP32 only): Wi-Fi, NTP and a FreeRTOS task that posts each pot's placed-at Unix time (`field1–3`; 0 = unknown, -1 = removed). The field mapping is in README.md; keep it stable |
+| `secrets.example.h` | **ours** | Template for the gitignored `secrets.h` (Wi-Fi SSID and password, ThingSpeak Write API Key). Without `secrets.h`, `publish.cpp` builds with publishing off (`__has_include`) |
+| `thingspeak_root_ca.h` | **ours** | Root certificates for HTTPS to api.thingspeak.com (copied from office_ac_controller) |
 | `DEV_Config.h/.cpp` | Waveshare (modified) | Per-board pin defines and `DEV_SPI_HZ`, SPI/serial init (`SPI.beginTransaction` is opened once and never ended) |
 | `LCD_Driver.h/.cpp` | Waveshare | ST7789 init, window/cursor and pixel writes. `LCD_WIDTH 320`, `LCD_HEIGHT 240` (landscape via MADCTL `0xA0`) |
 | `GUI_Paint.h/.cpp` | Waveshare | Drawing primitives (`Paint_DrawString_EN`, `Paint_DrawLine`, …) |

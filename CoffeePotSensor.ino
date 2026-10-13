@@ -3,6 +3,7 @@
 #include "LCD_Driver.h"
 #include "GUI_Paint.h"
 #include "Debug.h"
+#include "publish.h"  // ThingSpeak (ESP32 only; credentials in secrets.h)
 
 #if defined(ARDUINO_ARCH_ESP32)
 #define POT1_PIN 4  // GPIO numbers on the ESP32-S3-Zero (3.3V inputs only!)
@@ -16,7 +17,7 @@
 #define REFRESH_INTERVAL 100UL  // ms between sensor polls
 #define STATUS_CHARS 20         // status text is padded to this width so it fully overwrites the previous text
 // Sensor test mode: set to 1 to show raw readings with no debounce and log each change to Serial.
-// For checking a sensor or case print; set it back to 0 for normal use.
+// For checking a sensor or case print; set it back to 0 for normal use. Nothing is published in this mode.
 #define SENSOR_TEST 0
 #if SENSOR_TEST
 #define PLACE_DEBOUNCE_MS 0UL
@@ -73,6 +74,19 @@ void restart() {
 #endif
 }
 
+// Sends all three pots to ThingSpeak, with a note on what changed (ESP32 only)
+void publishState(const char* status) {
+#if defined(ARDUINO_ARCH_ESP32) && !SENSOR_TEST
+  unsigned long now = millis();
+  PotReport reports[3];
+  for (int i = 0; i < 3; ++i) {
+    reports[i].state = !pots[i].present ? POT_REMOVED : pots[i].timeKnown ? POT_KNOWN : POT_UNKNOWN;
+    reports[i].ageMs = now - pots[i].placedAt;
+  }
+  publishPots(reports, status);
+#endif
+}
+
 void setup() {
 #if defined(ARDUINO_ARCH_ESP32)
   // Hardware watchdog: reboots the board if loop() ever stops returning (a real hang)
@@ -102,6 +116,9 @@ void setup() {
   Serial.println("\n[debug] Text written.");
 
   //   Paint_DrawImage(0, 0);  // Initial draw
+
+  publishBegin();
+  publishState("Started");
 }
 
 void formatStatus(const CoffeePot& pot, unsigned long now, char* buffer) {
@@ -153,6 +170,12 @@ void updatePotStatus(CoffeePot& pot, unsigned long now) {
     pot.timeKnown = true;
   }
   pot.present = raw;
+
+#if defined(ARDUINO_ARCH_ESP32)
+  char status[24];
+  snprintf(status, sizeof(status), "%s %s", pot.name, raw ? "placed" : "removed");
+  publishState(status);
+#endif
 }
 
 void drawPotStatus(CoffeePot& pot, int yOffset, unsigned long now) {
