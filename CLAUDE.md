@@ -1,96 +1,79 @@
 # CLAUDE.md
 
-Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots has been sitting on the rack (the pots sit on a rack, not a burner) and shows it on a Waveshare 2" ST7789 SPI LCD. It supports two boards from the same code. Pins and SPI setup are chosen with `#if defined(ARDUINO_ARCH_ESP32)`.
-- **Arduino Nano** (ATmega328P, 2 KB SRAM, 32 KB flash). This is the original target and the tightest constraint.
-- **Waveshare ESP32-S3-Zero** (ESP32-S3FH4R2, 3.3 V). This is the planned replacement.
+Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots has been sitting on the rack (the pots sit on a rack, not a burner) and shows it on a Waveshare 2" ST7789 SPI LCD. It runs on a **Waveshare ESP32-S3-Zero** (ESP32-S3FH4R2, 3.3 V, Wi-Fi) and publishes to ThingSpeak.
 
-ESP8266 is no longer supported. See [README.md](README.md) for wiring. See [docs/HARDWARE.md](docs/HARDWARE.md) for part specs, sensor behavior, the physical setup (wall-mounted behind the pots), and the planned sensor-rod redesign. Keep that file up to date when hardware facts change. Planned ideas (ToF sensors, OTA updates) are tracked in [docs/FUTURE_WORK.md](docs/FUTURE_WORK.md).
+The Arduino Nano was dropped on 2026-10-12, along with the Waveshare driver files (in git history up to `63bcd10`). ESP8266 was dropped before that. See [README.md](README.md) for wiring, the screen and ThingSpeak. See [docs/HARDWARE.md](docs/HARDWARE.md) for part specs, sensor behavior and the physical setup (wall-mounted behind the pots). Keep that file up to date when hardware facts change. Planned ideas (ToF sensors, OTA updates) are tracked in [docs/FUTURE_WORK.md](docs/FUTURE_WORK.md).
 
 ## Build / flash
 
 No tests or CI. To verify a change, compile it. If hardware is attached, also flash it and check the screen.
 
 ```bash
+tools/compile.sh                     # compile (bundled arduino-cli, min_spiffs partition)
+tools/build_netlify.sh               # dashboard + OTA firmware zip for Netlify (needs committed firmware)
 CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli"
-"$CLI" compile --fqbn arduino:avr:nano /Users/humberto/workspace/CoffeePotSensor
-"$CLI" upload  --fqbn arduino:avr:nano -p /dev/cu.usbserial-XXXX /Users/humberto/workspace/CoffeePotSensor
-"$CLI" monitor -p /dev/cu.usbserial-XXXX -c baudrate=115200
+"$CLI" upload  --fqbn esp32:esp32:waveshare_esp32_s3_zero:PartitionScheme=min_spiffs --input-dir "$TMPDIR/coffeepot_build" -p /dev/cu.usbmodemXXXX
+"$CLI" monitor -p /dev/cu.usbmodemXXXX -c baudrate=115200
 ```
 
 - `arduino-cli` is not on PATH. Use the copy bundled with Arduino IDE (path above).
-- Clones and old-bootloader Nanos may need `arduino:avr:nano:cpu=atmega328old`.
-- ESP32-S3 FQBN: `esp32:esp32:waveshare_esp32_s3_zero`. The esp32 core 3.3.x is installed in `~/Library/Arduino15`. The board uses native USB (no UART chip), so the port shows up as `/dev/cu.usbmodem*`. If upload can't find it, hold BOOT while plugging in.
-- **Always compile both FQBNs** before calling a change done. Something that builds on one can fail on the other, for example an AVR-only header or a 16-bit `int` assumption.
+- The esp32 core 3.3.x is installed in `~/Library/Arduino15`. **LovyanGFX** 1.2.32 is installed in `~/Documents/Arduino/libraries`. TFT_eSPI is also installed, but it's configured inside the library folder for office_ac_controller, so don't use it here.
+- The board uses native USB (no UART chip), so the port shows up as `/dev/cu.usbmodem*`. If upload can't find it, hold BOOT while plugging in.
+- **Compile both with and without `secrets.h`** before calling a change done (move it aside temporarily). Without it, `publish.cpp` takes a different branch.
 - The sketch folder name must match `CoffeePotSensor.ino`. Arduino compiles every `.cpp` in the folder automatically.
-- Baseline:
-  - Nano: about 17.8 KB flash (57%) and 645 B globals (31%).
-  - ESP32-S3: about 324 KB flash (24%) and 22.7 KB globals (6%) without `secrets.h`. With it (Wi-Fi, HTTPS), about 1.04 MB (79%) and 47 KB (14%). Check the compile output after every change and watch RAM closely.
+- **Partition scheme: `PartitionScheme=min_spiffs`** (two 1.9 MB app slots, for OTA). The board can only take OTA builds made with the scheme it was last flashed with over USB, so never change it casually.
+- Baseline: about 414 KB flash (21%) without `secrets.h`; about 1.12 MB (56%) and 50 KB globals with it (Wi-Fi, HTTPS, OTA).
 - **Never commit credentials.** They go only in `secrets.h`. Before committing, read the staged diff and check that no SSID, password or API key is in it, including in `secrets.example.h`.
+- **This repo is public.** The OTA file name (a UUID) and the Netlify site address are secret too, because the `.bin` contains the credentials: they live only in `secrets.h` (`OTA_FILE_NAME`, `OTA_BASE_URL`) and `dist/` (gitignored). Never write them into a tracked file, a commit message or the dashboard.
+- `secrets.h` defines its values as `static const char*` so several files (`publish.cpp`, `ota.cpp`) can include it.
 
 ## Layout
 
-| File | Owner | Purpose |
-|---|---|---|
-| `CoffeePotSensor.ino` | **ours** | All app logic: `CoffeePot` struct, sensor polling, drawing |
-| `publish.h/.cpp` | **ours** | ThingSpeak publishing (ESP32 only): Wi-Fi, NTP and a FreeRTOS task that posts each pot's placed-at Unix time (`field1–3`; 0 = unknown, -1 = removed). The field mapping is in README.md; keep it stable |
-| `secrets.example.h` | **ours** | Template for the gitignored `secrets.h` (Wi-Fi SSID and password, ThingSpeak Write API Key). Without `secrets.h`, `publish.cpp` builds with publishing off (`__has_include`) |
-| `thingspeak_root_ca.h` | **ours** | Root certificates for HTTPS to api.thingspeak.com (copied from office_ac_controller) |
-| `DEV_Config.h/.cpp` | Waveshare (modified) | Per-board pin defines and `DEV_SPI_HZ`, SPI/serial init (`SPI.beginTransaction` is opened once and never ended) |
-| `LCD_Driver.h/.cpp` | Waveshare | ST7789 init, window/cursor and pixel writes. `LCD_WIDTH 320`, `LCD_HEIGHT 240` (landscape via MADCTL `0xA0`) |
-| `GUI_Paint.h/.cpp` | Waveshare | Drawing primitives (`Paint_DrawString_EN`, `Paint_DrawLine`, …) |
-| `font8/16/20/24.cpp`, `fonts.h` | Waveshare | Monospace bitmap fonts in PROGMEM. Widths: 5 / 11 / 14 / 17 px; heights: 8 / 16 / 20 / 24. Only Font20 (3.8 KB) and Font24 (6.8 KB, used just for the title) are linked in. Unused fonts are discarded by `--gc-sections`, so they cost nothing in flash; there's no need to delete them or `#ifdef` them out |
-| `image.cpp/.h` | Waveshare | 70×70 sample bitmap. Unused (the linker drops it) |
-| `Debug.h` | Waveshare | `Debug()` macro. Not useful: AVR `printf` isn't wired to Serial |
-
-Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
+| File | Purpose |
+|---|---|
+| `CoffeePotSensor.ino` | App logic: `CoffeePot` struct, sensor polling and debounce, idle restart. Hands each pot's state to the screen and ThingSpeak as a `PotReport` |
+| `ui.h/.cpp` | The screen, drawn with LovyanGFX (design A: a header, then one row per pot). The LCD pins, the `LGFX` panel config, the freshness cutoffs `FRESH_MIN` (90) / `OLD_MIN` (240) and the colors live here |
+| `publish.h/.cpp` | ThingSpeak publishing: Wi-Fi, NTP (`TIME_ZONE`, US Central) and a FreeRTOS task that posts each pot's placed-at Unix time (`field1–3`; 0 = unknown, -1 = removed) and the firmware version (`field4`). Also `publishNetState()` and `clockValid()` for the screen. The field mapping is in README.md; keep it stable |
+| `ota.h/.cpp` | Firmware updates: a task checks `<OTA_BASE_URL><OTA_FILE_NAME>.version` 2 min after boot and hourly, installs the `.bin` with HTTPUpdate if newer than `FIRMWARE_VERSION`, calls `savePotsForRestart()` (in the .ino, RTC memory) and restarts. `otaBusy()` shows "Updating..." in the header |
+| `ota_root_ca.h` | Root certificates for the Netlify download (copied from office_ac_controller) |
+| `dashboard/index.html` | The Netlify dashboard: reads the public ThingSpeak channel (optional Read API Key in localStorage), shows pot ages, the board's last update and firmware version, and recent activity. `DEPLOYED_FIRMWARE` is stamped by `build_netlify.sh` |
+| `tools/compile.sh`, `tools/build_netlify.sh` | Compile, and build `dist/netlify-deploy.zip` (dashboard + `<uuid>.bin` + `<uuid>.version`; version = git commit count) |
+| `secrets.example.h` | Template for the gitignored `secrets.h` (Wi-Fi SSID and password, ThingSpeak Write API Key, OTA URL parts). Without `secrets.h`, the sketch builds with publishing and updates off (`__has_include`) |
+| `thingspeak_root_ca.h` | Root certificates for HTTPS to api.thingspeak.com (copied from office_ac_controller) |
 
 ## How it works
 
-- Each pot has an **IR reflection sensor module** (FC-51/TCRT5000 style, LM393 comparator with an onboard pull-up and a sensitivity screw). They connect to **D2/D3/D4** on the Nano and **GPIO4/5/6** on the ESP32-S3-Zero. The pin is **active LOW**, so LOW means a pot is present. The pins use `INPUT` with no internal pull-up.
-- `loop()` runs every `REFRESH_INTERVAL` ms (100 ms). For each pot it does two things:
-  - `updatePotStatus` debounces the sensor. A new reading must hold for `PLACE_DEBOUNCE_MS` (1 s) before a pot counts as placed, or `REMOVE_DEBOUNCE_MS` (3 s) before it counts as removed. Brief IR flickers, like a hand passing or steam, are ignored and don't reset the timer.
+- Each pot has an **IR reflection sensor module** (FC-51/TCRT5000 style, LM393 comparator with an onboard pull-up and a sensitivity screw) on **GPIO4/5/6**. The pin is **active LOW**, so LOW means a pot is present. The pins use `INPUT` with no internal pull-up.
+- `loop()` runs every `REFRESH_INTERVAL` ms (100 ms):
+  - `updatePotStatus` debounces each sensor. A new reading must hold for `PLACE_DEBOUNCE_MS` (1 s) before a pot counts as placed, or `REMOVE_DEBOUNCE_MS` (3 s) before it counts as removed. Brief IR flickers, like a hand passing or steam, are ignored and don't reset the timer.
     - On a confirmed placement it sets `timeKnown = true` and `placedAt = rawChangedAt`, the moment the reading first changed rather than when the debounce finished.
     - `present` is the debounced state; `rawPresent` is the latest reading.
-  - `drawPotStatus`: `formatStatus` builds the status text, padded to `STATUS_CHARS` (20) characters. The line is redrawn only when that text differs from `pot.shown`, which is what's currently on screen.
-- **`SENSOR_TEST`** (top of the `.ino`): when set to 1, there is no debounce, so the screen follows the raw sensor reading, and each change is logged to Serial. It's for checking sensors and case prints. **It must be 0 in commits.**
-- At power-on, `setup()` records which pots are already present. Those pots show `Last brew: Unknown` until they are removed and put back. A pot that is absent at boot shows `Removed`, and its timer starts when it is placed.
-- **Idle restart.** If no pot is placed or removed for `IDLE_RESTART_MS` (48 h), `restart()` restarts the sketch. In an office this happens over the weekend. Any present/removed edge on any pot updates `lastActivity`, and boot counts as activity.
-  - On AVR, `restart()` uses `jmp 0`, a jump to the reset vector. This re-runs C startup, so globals and `millis()` start over, and then `setup()` runs again.
-  - It deliberately doesn't use a watchdog reset. Nanos with the old bootloader get stuck in a reset loop after one.
-  - On ESP32 it calls `ESP.restart()`. `setup()` also calls `enableLoopWDT()`, which reboots the board if `loop()` stops returning for about 5 s. Don't add long blocking work to `loop()`.
+    - Each confirmed change is published (`publishState`).
+  - `uiDraw` gets all three pots as `PotReport`s plus the network state, and redraws only the regions whose content changed.
+- **`SENSOR_TEST`** (top of the `.ino`): when set to 1, there is no debounce, so the screen follows the raw sensor reading, and each change is logged to Serial. Nothing is published. It's for checking sensors and case prints. **It must be 0 in commits.** The user often keeps it at 1 locally while testing: commit around it, never with it.
+- At power-on, `setup()` records which pots are already present. Those pots show **?** ("There since power-on") until they are removed and put back. A pot that is absent at boot shows **–**, and its timer starts when it is placed.
+- **Idle restart.** If no pot is placed or removed for `IDLE_RESTART_MS` (48 h), `restart()` calls `ESP.restart()`. In an office this happens over the weekend. Any present/removed edge on any pot updates `lastActivity`, and boot counts as activity. `setup()` also calls `enableLoopWDT()`, which reboots the board if `loop()` stops returning for about 5 s. Don't add long blocking work to `loop()`; network work belongs in the publish task.
   - To test it, temporarily set `IDLE_RESTART_MS` to something like `30000UL`.
-- Elapsed time uses unsigned `now - placedAt`, so it stays correct across the 49.7-day `millis()` rollover. The only limit is a single pot sitting for more than 49.7 days.
-- Screen layout: title at y=12 (Font24). Pot rows start at y=50 and are 60 px apart. Each row has the name (Font20, green) at `y`, the status at `y+25`, and a divider at `y+53`.
-- Colors are **RGB565** (`COLOR_BG 0x18E3`, `COLOR_TEXT 0xC618`, `STARBUCKS_GREEN 0x07E0`).
+- Elapsed time uses unsigned `now - placedAt`, so it stays correct across the 49.7-day `millis()` rollover. The only limit is a single pot sitting for more than 49.7 days. The decaf pot can reach hundreds of hours, so the age text must fit "999h 59m".
+
+## Screen (`ui.cpp`)
+
+- 320 × 240 landscape: a 30 px header (title, local clock once NTP has set it, network icon), then three 70 px rows (name, age in a large font colored by freshness, "Brewed 2:29 pm" or "Brewed Oct 3", the word Fresh / OK / Old, and a bar that empties at `OLD_MIN`).
+- Each region is drawn into a sprite (header 320 × 30; one shared 320 × 70 row sprite, 45 KB) and pushed in one burst, so there's no flicker. A region is redrawn only when its content key changes. PSRAM is off (the board default), so keep sprites small.
+- Fonts are LovyanGFX built-ins: `DejaVu18`/`DejaVu12` (smooth) and `FreeSansBold18pt7b` for the age.
+- Panel config (unverified on hardware as of 2026-10-12): SPI2 at 20 MHz, mode 3, `invert = true`, `setRotation(3)` (the old Waveshare demo used MADCTL 0xA0 and INVON). If the image is upside down, use rotation 1; if red and blue are swapped, set `rgb_order`.
+- Never call the pots' place a "burner".
 
 ## Constraints and gotchas
 
-- **There is no framebuffer.** `Paint_NewImage` only stores dimensions. Every `Paint_*` call writes pixels directly to the LCD over SPI: `Paint_SetPixel` → `LCD_DrawPaint`, one pixel at a time. This is slow on the Nano, so redraw only what changed.
-- **Erase by overdrawing.** Text is drawn with an explicit background color, which repaints every glyph cell. Updates overwrite old text in place instead of clearing first. That's why `formatStatus` pads every status to a fixed width with spaces. At 20 chars × 14 px from x=15, the line ends at x=295, inside the 320 px screen. Clearing with `LCD_ClearWindow` causes visible flicker, which is why those calls are commented out.
-  - Passing `FONT_BACKGROUND` (WHITE) as the background switches to transparent mode. In that mode old text is not erased.
-- **2 KB of SRAM.**
-  - Put constant data in PROGMEM and read it with `pgm_read_byte`.
-  - Use `char` buffers, not `String`. The sketch doesn't use the heap at all.
-  - Use `F("...")` for Serial literals.
-  - Avoid large stack buffers.
-- **On AVR, `int` is 16 bits and `long` is 32 bits.** `sprintf` arguments must match the format exactly: `%d` takes an `int`, and `%ld`/`%lu` take a `long`/`unsigned long`. Cast where needed (see `formatStatus`). Never store `millis()`-derived values in an `int`, because it overflows after 32,767. AVR `sprintf` doesn't support `%f`.
-- **Text width.** Font20 is 14 px wide, so a line starting at x=15 fits about 21 characters. `Paint_DrawString_EN` wraps silently when a line is too long.
 - **`millis()` arithmetic** uses unsigned subtraction, so it handles rollover. Keep it that way.
-- **Nano pins:**
-  - In use: D7 DC, D8 RST, D9 BL (PWM), D10 CS, D11 MOSI, D13 SCK, D2–D4 sensors.
-  - Free: D5, D6, D12, A0–A7.
-  - Its 5 V logic drives a 3.3 V display, which is out of spec but works.
 - **ESP32-S3-Zero pins** are raw GPIO numbers:
   - In use: 7 BL, 8 RST, 9 DC, 10 CS, 11 MOSI, 12 SCK, 4–6 sensors.
   - Free on the edge headers: 1, 2, 3 (strapping pin), 13, and TX/RX (43/44).
   - GPIO14–16 (front) and 17, 18, 38–42, 45 (back) are **solder pads only**, not header pins. Don't assign them unless you're willing to solder wires to pads.
-  - The core's default SPI pins for this board (34–37) **are not brought out**. That's why `SPI.begin(sck, miso, mosi, ss)` passes pins explicitly.
+  - The core's default SPI pins for this board (34–37) **are not brought out**, so the LCD's SPI pins are set explicitly in `ui.cpp`.
   - Avoid the strapping pins 0, 3, 45 and 46. Avoid 21 (onboard WS2812 LED) and 43/44 (UART0).
   - GPIOs are 3.3 V only.
-- **Portability:**
-  - Include `<Arduino.h>` for `PROGMEM`/`pgm_read_byte`, not `<avr/pgmspace.h>`, which doesn't exist on ESP32.
-  - Keep includes outside `extern "C"` blocks.
-  - Guard AVR-only code (such as `asm`) with `#if defined(ARDUINO_ARCH_ESP32)` / `#else`.
 
 ## Case (`case/`)
 
@@ -118,4 +101,4 @@ Keep changes to the Waveshare files small. App behavior belongs in the `.ino`.
 ## Conventions
 
 - Commit messages use conventional prefixes: `feat:`, `fix:`, `refactor:`, `docs:`.
-- Use 2-space indent in the `.ino`. Leave the Waveshare files in their original style.
+- Use 2-space indent in the `.ino` and the `.cpp` files.

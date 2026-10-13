@@ -1,21 +1,19 @@
-// Based on https://www.waveshare.com/wiki/2inch_LCD_Module#Arduino_IDE_Installation_Steps
-#include "DEV_Config.h"
-#include "LCD_Driver.h"
-#include "GUI_Paint.h"
-#include "Debug.h"
-#include "publish.h"  // ThingSpeak (ESP32 only; credentials in secrets.h)
+// brew-em-all: shows how long each of three coffee pots has been on the rack.
+// Runs on a Waveshare ESP32-S3-Zero with a Waveshare 2" ST7789 LCD (see README.md).
+#include "publish.h"  // ThingSpeak (credentials in secrets.h)
+#include "ui.h"       // the screen (LovyanGFX)
+#include "ota.h"      // firmware updates over Wi-Fi
+#include <time.h>
+#include <esp_system.h>
 
-#if defined(ARDUINO_ARCH_ESP32)
+#if !defined(ARDUINO_ARCH_ESP32)
+#error "brew-em-all runs on the ESP32-S3-Zero only (Nano support was dropped)"
+#endif
+
 #define POT1_PIN 4  // GPIO numbers on the ESP32-S3-Zero (3.3V inputs only!)
 #define POT2_PIN 5
 #define POT3_PIN 6
-#else
-#define POT1_PIN 2
-#define POT2_PIN 3
-#define POT3_PIN 4
-#endif
 #define REFRESH_INTERVAL 100UL  // ms between sensor polls
-#define STATUS_CHARS 20         // status text is padded to this width so it fully overwrites the previous text
 // Sensor test mode: set to 1 to show raw readings with no debounce and log each change to Serial.
 // For checking a sensor or case print; set it back to 0 for normal use. Nothing is published in this mode.
 #define SENSOR_TEST 0
@@ -28,10 +26,6 @@
 #endif
 #define IDLE_RESTART_MS (48UL * 60 * 60 * 1000)  // restart after this long with no pot activity (e.g. over a weekend)
 
-#define COLOR_TEXT 0xC618  // light gray
-#define COLOR_BG 0x18E3    // almost black
-#define STARBUCKS_GREEN 0x07E0
-
 unsigned long lastUpdate = 0;
 unsigned long lastActivity = 0;  // millis() of the last pot placed/removed (or boot)
 
@@ -43,14 +37,14 @@ struct CoffeePot {
   unsigned long rawChangedAt; // millis() when rawPresent last changed
   bool timeKnown;  // false until the pot has been placed while we were watching
   unsigned long placedAt;
-  char shown[STATUS_CHARS + 1];  // status text currently on screen
-  bool nameDrawn;  // true if name has been drawn
 };
 
+const char* const potNames[3] = { "Medium", "Dark", "Decaf" };  // top to bottom on the screen
+
 CoffeePot pots[3] = {
-  { "Medium", POT1_PIN, false, false, 0, false, 0, "", false },
-  { "Dark", POT2_PIN, false, false, 0, false, 0, "", false },
-  { "Decaf", POT3_PIN, false, false, 0, false, 0, "", false }
+  { potNames[0], POT1_PIN, false, false, 0, false, 0 },
+  { potNames[1], POT2_PIN, false, false, 0, false, 0 },
+  { potNames[2], POT3_PIN, false, false, 0, false, 0 }
 };
 
 
@@ -58,89 +52,95 @@ bool isPotPresent(const CoffeePot& pot) {
   return digitalRead(pot.sensorPin) == LOW;
 }
 
-// Restart the sketch from scratch: globals are re-initialized, millis() starts
-// over at 0, and setup() runs again (which also hardware-resets the LCD).
-// On AVR this jumps to the reset vector instead of using a watchdog reset,
-// because Nanos with the old bootloader get stuck in a reset loop after a
-// watchdog reset.
+// Restart from scratch: millis() starts over and setup() runs again
+// (which also resets the LCD).
 void restart() {
   Serial.println(F("[debug] No pot activity, restarting..."));
   Serial.flush();
-#if defined(ARDUINO_ARCH_ESP32)
   ESP.restart();
-#else
-  noInterrupts();
-  asm volatile("jmp 0");
-#endif
 }
 
-// Sends all three pots to ThingSpeak, with a note on what changed (ESP32 only)
-void publishState(const char* status) {
-#if defined(ARDUINO_ARCH_ESP32) && !SENSOR_TEST
+// Pots' ages kept across a restart into new firmware (RTC memory survives a software
+// reset). Only the update path writes it; the weekend idle restart starts fresh.
+#define SAVED_MAGIC 0xC0FFEE01
+struct SavedPots {
+  uint32_t magic;
+  int8_t state[3];
+  time_t placedEpoch[3];   // Unix time each POT_KNOWN pot was placed
+};
+RTC_NOINIT_ATTR SavedPots savedPots;
+bool restorePending = false;
+
+void savePotsForRestart() {
+  if (!clockValid()) return;   // no clock: the ages can't be carried over
+  time_t epoch = time(nullptr);
   unsigned long now = millis();
-  PotReport reports[3];
+  for (int i = 0; i < 3; ++i) {
+    savedPots.state[i] = !pots[i].present ? POT_REMOVED : pots[i].timeKnown ? POT_KNOWN : POT_UNKNOWN;
+    savedPots.placedEpoch[i] = epoch - (time_t)((now - pots[i].placedAt) / 1000);
+  }
+  savedPots.magic = SAVED_MAGIC;
+}
+
+// Once the clock is set after an update restart, give back the ages of the pots
+// that are still on the rack
+void restorePots(unsigned long now) {
+  if (!restorePending || !clockValid()) return;
+  restorePending = false;
+  time_t epoch = time(nullptr);
+  bool any = false;
+  for (int i = 0; i < 3; ++i) {
+    if (savedPots.state[i] != POT_KNOWN || !pots[i].present || pots[i].timeKnown) continue;
+    if (savedPots.placedEpoch[i] > epoch) continue;
+    pots[i].placedAt = now - (unsigned long)(epoch - savedPots.placedEpoch[i]) * 1000UL;
+    pots[i].timeKnown = true;
+    any = true;
+  }
+  if (any) publishState("Ages restored after update");
+}
+
+// Each pot's state, for the screen and ThingSpeak
+void potReports(PotReport reports[3], unsigned long now) {
   for (int i = 0; i < 3; ++i) {
     reports[i].state = !pots[i].present ? POT_REMOVED : pots[i].timeKnown ? POT_KNOWN : POT_UNKNOWN;
     reports[i].ageMs = now - pots[i].placedAt;
   }
+}
+
+// Sends all three pots to ThingSpeak, with a note on what changed
+void publishState(const char* status) {
+#if !SENSOR_TEST
+  PotReport reports[3];
+  potReports(reports, millis());
   publishPots(reports, status);
 #endif
 }
 
 void setup() {
-#if defined(ARDUINO_ARCH_ESP32)
   // Hardware watchdog: reboots the board if loop() ever stops returning (a real hang)
   enableLoopWDT();
-#endif
-  Config_Init();
-  LCD_Init();
-
-  //LCD_Clear(0xffff);
-  Paint_NewImage(LCD_WIDTH, LCD_HEIGHT, 0, COLOR_BG);
-
-  // delay(2000);
-  LCD_Clear(COLOR_BG);
+  Serial.begin(115200);
+  Serial.println(F("\n[BOOT] Starting brew-em-all..."));
+  uiBegin();
 
   pinMode(POT1_PIN, INPUT);
   pinMode(POT2_PIN, INPUT);
   pinMode(POT3_PIN, INPUT);
 
-  // A pot already on the burner at power-on has an unknown age. Recording it as
+  // A pot already on the rack at power-on has an unknown age. Recording it as
   // present means the timer only starts once it's removed and put back.
   for (int i = 0; i < 3; ++i) {
     pots[i].present = pots[i].rawPresent = isPotPresent(pots[i]);
   }
-
-  Serial.println("\n[debug] Writting text...");
-  Paint_DrawString_EN(64, 12, "brew-em-all", &Font24, COLOR_BG, COLOR_TEXT);
-  Serial.println("\n[debug] Text written.");
-
-  //   Paint_DrawImage(0, 0);  // Initial draw
+  // After an update, the pots still on the rack get their ages back once the clock is set
+  restorePending = esp_reset_reason() == ESP_RST_SW && savedPots.magic == SAVED_MAGIC;
+  savedPots.magic = 0;
 
   publishBegin();
-  publishState("Started");
-}
-
-void formatStatus(const CoffeePot& pot, unsigned long now, char* buffer) {
-  if (!pot.present) {
-    strcpy(buffer, "Removed");
-  } else if (!pot.timeKnown) {
-    strcpy(buffer, "Last brew: Unknown");
-  } else {
-    unsigned long seconds = (now - pot.placedAt) / 1000;
-    if (seconds < 60) {
-      snprintf(buffer, STATUS_CHARS + 1, "Last brew: %02d sec", (int)seconds);
-    } else {
-      unsigned long hours = seconds / 3600;
-      int minutes = (seconds % 3600) / 60;
-      snprintf(buffer, STATUS_CHARS + 1, "Last brew: %02luh %02dm", hours, minutes);
-    }
-  }
-
-  // Pad with spaces so shorter text covers whatever was drawn before
-  size_t len = strlen(buffer);
-  memset(buffer + len, ' ', STATUS_CHARS - len);
-  buffer[STATUS_CHARS] = '\0';
+  otaBegin();
+  char status[24];
+  snprintf(status, sizeof(status), "Started v%d", FIRMWARE_VERSION);
+  publishState(status);
 }
 
 void updatePotStatus(CoffeePot& pot, unsigned long now) {
@@ -171,51 +171,28 @@ void updatePotStatus(CoffeePot& pot, unsigned long now) {
   }
   pot.present = raw;
 
-#if defined(ARDUINO_ARCH_ESP32)
   char status[24];
   snprintf(status, sizeof(status), "%s %s", pot.name, raw ? "placed" : "removed");
   publishState(status);
-#endif
 }
-
-void drawPotStatus(CoffeePot& pot, int yOffset, unsigned long now) {
-  // Draw pot name in green only once
-  if (!pot.nameDrawn) {
-    // LCD_ClearWindow(10, yOffset, LCD_WIDTH - 10, yOffset + 24, COLOR_BG);
-    Paint_DrawString_EN(15, yOffset, pot.name, &Font20, COLOR_BG, STARBUCKS_GREEN);
-
-    // Draw divider
-    Paint_DrawLine(5, yOffset + 53, LCD_WIDTH - 5, yOffset + 53, COLOR_TEXT, DOT_PIXEL_1X1, LINE_STYLE_SOLID);
-
-    pot.nameDrawn = true;
-  }
-
-  // Only redraw the status line when its text changes
-  char status[STATUS_CHARS + 1];
-  formatStatus(pot, now, status);
-  if (strcmp(status, pot.shown) != 0) {
-    Paint_DrawString_EN(15, yOffset + 25, status, &Font20, COLOR_BG, COLOR_TEXT);
-    strcpy(pot.shown, status);
-  }
-}
-
 
 void loop() {
   unsigned long now = millis();
-  if (!lastUpdate || (now - lastUpdate >= REFRESH_INTERVAL || now < lastUpdate)) {
+  if (!lastUpdate || now - lastUpdate >= REFRESH_INTERVAL) {
     lastUpdate = now;
 
     // Nobody has touched a pot in a long time (a weekend), so start fresh.
-    // Pots still on the burner will show "Unknown" afterwards.
+    // Pots still on the rack will show "Unknown" afterwards.
     if (now - lastActivity >= IDLE_RESTART_MS) {
       restart();
     }
 
+    restorePots(now);
     for (int i = 0; i < 3; ++i) {
       updatePotStatus(pots[i], now);
-      // Start at 50, then increment by 60 for each pot
-      int yOffset = 50 + (i * 60);
-      drawPotStatus(pots[i], yOffset, now);
     }
+    PotReport reports[3];
+    potReports(reports, now);
+    uiDraw(potNames, reports, publishNetState());
   }
 }

@@ -30,20 +30,23 @@ This is everything known so far about the physical build: the parts, how they're
 - **Orientation:** landscape, 320 × 240. The init command `0x36 = 0xA0` rotates the panel.
 - **Color format:** 16-bit RGB565 (`0x3A = 0x05`).
 - **Color inversion:** turned on (`0x21`). IPS panels need this for colors to come out right.
-- **Backlight:** dimmed with PWM, set to `80`/255 in `DEV_Config.cpp`.
-- **SPI mode:** mode 3. The clock runs at 8 MHz on the Nano and 20 MHz on the ESP32-S3. The ST7789 itself can go faster than that.
+- **Backlight:** dimmed with PWM, set to `80`/255 (`BACKLIGHT` in `ui.cpp`).
+- **SPI mode:** mode 3 at 20 MHz (`LCD_SPI_HZ` in `ui.cpp`). The ST7789 itself can go faster than that.
 - **Drawing:** the code doesn't keep a copy of the screen in memory. Every pixel is written straight to the display.
 
 ## Microcontrollers
 
-### Arduino Nano (current)
+### Arduino Nano (retired)
+
+No longer supported as of 2026-10-12. The notes below and the Nano wiring sections are kept as a record of the old build.
+
 
 - The board is a **RobotDyn Nano V3**, a clone with a micro-USB port.
 - ATmega328P chip at 16 MHz, with 2 KB of RAM and 32 KB of flash.
 - Its pins run at 5 V, but the display expects 3.3 V. This is out of spec, but it works in practice.
 - Its bootloader is unknown. Clones like this often have the old Nano bootloader, but this one isn't verified. That's why the idle restart avoids a watchdog reset; see CLAUDE.md.
 
-### Waveshare ESP32-S3-Zero (replacing the Nano)
+### Waveshare ESP32-S3-Zero (current)
 
 [Wiki](https://www.waveshare.com/wiki/ESP32-S3-Zero). It's also sold as the "ESP32-S3 Mini Development Board".
 
@@ -141,7 +144,7 @@ The spare pins fit each sensor's own VCC and GND, if the sensors are later taken
 
 **Future case work:** the case has no mount for this board yet. The redesigned brain box should include one.
 
-## Current Nano build: wire colors
+## Old Nano build: wire colors (for reference)
 
 This is the wiring as it is today, read from photos of the open case (October 2026) and checked against the pin assignments in the code. Each row says how it was determined:
 - **Code + photo:** the photo clearly shows the wire on that pin, and it matches the code.

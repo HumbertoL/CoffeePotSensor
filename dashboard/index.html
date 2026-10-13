@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>brew-em-all</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --text: #1f1e1c; --muted: #6b6963; --line: #e4e2dc;
+    --fresh: #2f9e57; --ok: #c98a0b; --old: #d1453b; --gray: #8d8b84;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14161a; --card: #1d2026; --text: #e8e6e1; --muted: #a9a69e; --line: #2c3038;
+            --fresh: #5dca7a; --ok: #efb027; --old: #e85a4f; --gray: #7a7870; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 24px; margin: 0; color: var(--fresh); font-weight: 600; }
+  h2 { font-size: 15px; margin: 32px 0 8px; color: var(--muted); font-weight: 500; }
+  .sub { color: var(--muted); font-size: 14px; }
+  button { font: inherit; font-size: 14px; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .pots { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 20px; }
+  .pot { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .pot .name { font-weight: 600; }
+  .pot .age { font-size: 34px; font-weight: 700; line-height: 1.2; margin-top: 4px; }
+  .pot .when { color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; }
+  .bar { height: 5px; background: var(--line); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar div { height: 100%; border-radius: 3px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .row:last-child { border-bottom: none; }
+  .row span:first-child { color: var(--muted); white-space: nowrap; }
+  .row span:last-child { text-align: right; }
+  .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .error { color: var(--old); font-size: 14px; margin-top: 12px; }
+  details { margin-top: 32px; font-size: 14px; color: var(--muted); }
+  input { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); width: 220px; max-width: 100%; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>brew-em-all</h1>
+    <span class="sub"><span id="updated">Loading…</span> <button id="refresh">Refresh</button></span>
+  </header>
+  <div id="error" class="error" hidden></div>
+  <div class="pots" id="pots"></div>
+
+  <h2>Board</h2>
+  <div class="card" id="board"></div>
+
+  <h2>Recent activity</h2>
+  <div class="card" id="activity"></div>
+
+  <details>
+    <summary>Settings</summary>
+    <p>If the ThingSpeak channel is private, enter its Read API Key. It's saved only in this browser.</p>
+    <input id="readKey" placeholder="Read API Key" autocomplete="off">
+    <button id="saveKey">Save</button>
+  </details>
+</main>
+<script>
+const CHANNEL_ID = "3533214";
+const DEPLOYED_FIRMWARE = "";   // stamped by tools/build_netlify.sh
+const POTS = ["Medium", "Dark", "Decaf"];
+const FRESH_MIN = 90, OLD_MIN = 240;   // same as the board (ui.h)
+const REFRESH_MS = 60 * 1000;
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+};
+let feeds = [];
+let loadedAt = null;
+
+function ageText(min) {
+  if (min < 60) return min + " min";
+  return Math.floor(min / 60) + "h " + String(min % 60).padStart(2, "0") + "m";
+}
+function timeText(d) {
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const t = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return sameDay ? t : d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + t;
+}
+function sinceText(d) {
+  const min = Math.round((Date.now() - d) / 60000);
+  return min < 1 ? "just now" : ageText(min) + " ago";
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// The newest entry with a value for this field
+function latest(field) {
+  for (let i = feeds.length - 1; i >= 0; i--) {
+    const v = feeds[i][field];
+    if (v !== null && v !== undefined && v !== "") return { value: Number(v), at: new Date(feeds[i].created_at) };
+  }
+  return null;
+}
+
+function renderPots() {
+  $("pots").innerHTML = POTS.map((name, i) => {
+    const e = latest("field" + (i + 1));
+    let age = "–", when = "No data yet", word = "", color = "var(--gray)", bar = 0;
+    if (e && e.value === -1) { when = "Not on the rack"; }
+    else if (e && e.value === 0) { age = "?"; when = "Age unknown"; }
+    else if (e) {
+      const placed = new Date(e.value * 1000);
+      const min = Math.max(0, Math.floor((Date.now() - placed) / 60000));
+      age = ageText(min);
+      when = "Brewed " + timeText(placed);
+      if (min < FRESH_MIN) { word = "Fresh"; color = "var(--fresh)"; }
+      else if (min < OLD_MIN) { word = "OK"; color = "var(--ok)"; }
+      else { word = "Old"; color = "var(--old)"; }
+      bar = Math.max(0, 1 - min / OLD_MIN) * 100;
+    }
+    return `<div class="pot"><div class="name">${name}</div>
+      <div class="age" style="color:${color}">${age}</div>
+      <div class="when"><span>${when}</span><span>${word}</span></div>
+      <div class="bar"><div style="width:${bar}%;background:${color}"></div></div></div>`;
+  }).join("");
+}
+
+function renderBoard() {
+  const last = feeds.length ? new Date(feeds[feeds.length - 1].created_at) : null;
+  const fw = latest("field4");
+  const rows = [
+    ["Last update from the board", last ? `${timeText(last)} (${sinceText(last)})` : "None yet"],
+    ["Running firmware", fw ? "v" + fw.value : "Unknown"],
+    ["Deployed firmware", DEPLOYED_FIRMWARE ? "v" + DEPLOYED_FIRMWARE : "Not stamped (local copy)"]
+  ];
+  if (fw && DEPLOYED_FIRMWARE && fw.value < Number(DEPLOYED_FIRMWARE)) {
+    rows.push(["Update", "Waiting: the board checks every hour"]);
+  }
+  $("board").innerHTML = rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${escapeHtml(v)}</span></div>`).join("") +
+    `<p class="note">The board posts only when a pot is placed or removed, and at startup.</p>`;
+}
+
+function renderActivity() {
+  const items = feeds.filter(f => f.status).slice(-15).reverse();
+  $("activity").innerHTML = items.length
+    ? items.map(f => `<div class="row"><span>${timeText(new Date(f.created_at))}</span><span>${escapeHtml(f.status)}</span></div>`).join("")
+    : `<div class="row"><span>Nothing yet</span><span></span></div>`;
+}
+
+function render() {
+  renderPots();
+  renderBoard();
+  renderActivity();
+  $("updated").textContent = loadedAt ? "Updated " + sinceText(loadedAt) : "Loading…";
+}
+
+async function load() {
+  const key = store.get("coffee.readKey");
+  const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=200&status=true` +
+              (key ? "&api_key=" + encodeURIComponent(key) : "");
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (!data || !Array.isArray(data.feeds)) throw new Error("no data (if the channel is private, add its Read API Key in Settings)");
+    feeds = data.feeds;
+    loadedAt = new Date();
+    $("error").hidden = true;
+  } catch (e) {
+    $("error").textContent = "Couldn't load ThingSpeak: " + e.message;
+    $("error").hidden = false;
+  }
+  render();
+}
+
+$("refresh").onclick = load;
+$("readKey").value = store.get("coffee.readKey");
+$("saveKey").onclick = () => { store.set("coffee.readKey", $("readKey").value.trim()); load(); };
+load();
+setInterval(load, REFRESH_MS);
+setInterval(render, 15 * 1000);   // keep the ages ticking between loads
+</script>
+</body>
+</html>

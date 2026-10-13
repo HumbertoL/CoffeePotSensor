@@ -10,3 +10,6 @@
 
 # Local credentials (see secrets.example.h)
 secrets.h
+
+# Netlify build output (the .bin contains secrets)
+dist/
