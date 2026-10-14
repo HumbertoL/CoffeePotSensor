@@ -31,3 +31,8 @@ void publishPots(const PotReport reports[3], const char* status);
 // Takes the next command from the dashboard (ThingSpeak TalkBack), if one is waiting.
 // Never blocks. Commands: "SET <pot 1-3> <Unix time it was placed>".
 bool publishTakeCommand(char* out, size_t len);
+// Posts a message to Slack from the network task (SLACK_WEBHOOK_URL in secrets.h). Never
+// blocks. label (like "Dark") goes in the note that reports how it went.
+void publishSlack(const char* label, const char* text);
+// Takes the next note from the network task (like "Slack: Dark posted"), for a ThingSpeak status.
+bool publishTakeNote(char* out, size_t len);

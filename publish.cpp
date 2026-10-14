@@ -5,8 +5,16 @@
 //     the Unix time (UTC seconds) the pot was placed, 0 if it's there but its age is
 //     unknown (it was already there at power-on), or -1 if it's removed.
 //   field4: the board's firmware version (FIRMWARE_VERSION).
-//   status: what changed, like "Dark placed".
-// An entry is sent at boot and whenever a pot is placed or removed.
+//   field5: Wi-Fi signal strength (RSSI, dBm; about -50 is great, below -80 is poor).
+//   field6: the lowest free memory since boot (KB), to spot leaks.
+//   field7: uptime (hours), to spot restarts.
+//   status: what changed, like "Dark placed" (empty for a heartbeat).
+// An entry is sent at boot, whenever a pot is placed or removed, after Slack posts and
+// commands, and as a heartbeat every 30 minutes (from the .ino).
+//
+// Slack: publishSlack() posts a message to the incoming webhook in SLACK_WEBHOOK_URL
+// (secrets.h; empty = off), retrying twice. The result comes back to the main loop as a
+// note (publishTakeNote), which ends up in a ThingSpeak status.
 //
 // Commands from the dashboard come through ThingSpeak TalkBack (TS_TALKBACK_ID and
 // TS_TALKBACK_KEY in secrets.h). The network task takes waiting commands every 20 s
@@ -41,10 +49,14 @@ bool clockValid() { return time(nullptr) >= CLOCK_VALID; }
 #ifndef TS_TALKBACK_KEY
 #define TS_TALKBACK_KEY ""
 #endif
+#ifndef SLACK_WEBHOOK_URL
+#define SLACK_WEBHOOK_URL ""
+#endif
 
 static const unsigned long TS_MIN_GAP_MS = 16000;   // ThingSpeak free plan: one update per 15 s
 static const unsigned long TS_RETRY_MS = 30000;     // wait after a failed send
 static const unsigned long COMMAND_POLL_MS = 20000; // how often to take TalkBack commands
+static const unsigned long SLACK_RETRY_MS = 30000;  // between Slack attempts (3 in all)
 #define STATUS_LEN 100
 
 // Shared between the main loop and the network task
@@ -61,6 +73,17 @@ static char pendingStatus[STATUS_LEN];
 static bool talkbackOn = false;
 static QueueHandle_t commandQueue = nullptr;   // TalkBack commands, network task -> main loop
 struct Command { char text[64]; };
+static bool slackOn = false;
+struct SlackMsg { char label[16]; char text[160]; };
+static QueueHandle_t slackQueue = nullptr;     // main loop -> network task
+static QueueHandle_t noteQueue = nullptr;      // notes for ThingSpeak, network task -> main loop
+struct Note { char text[48]; };
+
+static void addNote(const char* fmt, const char* a, int b) {
+  Note n;
+  snprintf(n.text, sizeof(n.text), fmt, a, b);
+  if (noteQueue) xQueueSend(noteQueue, &n, 0);
+}
 
 // Appends s to a form body, URL-encoded
 static void appendEncoded(char* out, size_t outLen, const char* s) {
@@ -114,6 +137,37 @@ static void takeCommands() {
   }
 }
 
+// Posts one message to Slack. Returns the HTTP status (200 = posted), or a negative HTTPClient error.
+static int slackPost(const char* text) {
+  static WiFiClientSecure client;
+  client.setCACert(TS_ROOT_CA);   // hooks.slack.com chains to ISRG Root X1, which is in this set
+  HTTPClient http;
+  http.setConnectTimeout(8000);
+  http.setTimeout(8000);
+  if (!http.begin(client, SLACK_WEBHOOK_URL)) return HTTPC_ERROR_CONNECTION_REFUSED;
+  http.addHeader("Content-Type", "application/json");
+  String body = String("{\"text\":\"") + text + "\"}";   // our own text: no quotes or backslashes
+  int code = http.POST(body);
+  http.end();
+  return code;
+}
+
+void publishSlack(const char* label, const char* text) {
+  if (!slackOn) return;
+  SlackMsg m;
+  strlcpy(m.label, label, sizeof(m.label));
+  strlcpy(m.text, text, sizeof(m.text));
+  if (xQueueSend(slackQueue, &m, 0) != pdTRUE) Serial.println(F("[slack] queue full, dropped"));
+}
+
+bool publishTakeNote(char* out, size_t len) {
+  if (!noteQueue) return false;
+  Note n;
+  if (xQueueReceive(noteQueue, &n, 0) != pdTRUE) return false;
+  strlcpy(out, n.text, len);
+  return true;
+}
+
 bool publishTakeCommand(char* out, size_t len) {
   if (!commandQueue) return false;
   Command c;
@@ -138,9 +192,34 @@ static void publishTask(void*) {
   unsigned long waitUntil = 0;   // after a failed send
   unsigned long lastPoll = 0;
   bool sentBefore = false, polledBefore = false;
+  SlackMsg slack;
+  bool slackBusy = false;           // a message is being sent (or waiting to retry)
+  int slackTries = 0;
+  unsigned long slackNextAt = 0;
   for (;;) {
     vTaskDelay(pdMS_TO_TICKS(500));
     if (WiFi.status() != WL_CONNECTED) continue;
+    if (slackOn && !slackBusy && xQueueReceive(slackQueue, &slack, 0) == pdTRUE) {
+      slackBusy = true;
+      slackTries = 0;
+      slackNextAt = millis();
+    }
+    if (slackBusy && (long)(millis() - slackNextAt) >= 0) {
+      int code = slackPost(slack.text);
+      ++slackTries;
+      if (code == 200) {
+        Serial.printf("[slack] posted: %s\n", slack.text);
+        addNote("Slack: %s posted", slack.label, 0);
+        slackBusy = false;
+      } else if (slackTries >= 3) {
+        Serial.printf("[slack] gave up: %s\n", code > 0 ? String(code).c_str() : HTTPClient::errorToString(code).c_str());
+        addNote("Slack: %s failed (%d)", slack.label, code);
+        slackBusy = false;
+      } else {
+        Serial.printf("[slack] attempt %d failed (%d), retrying\n", slackTries, code);
+        slackNextAt = millis() + SLACK_RETRY_MS;
+      }
+    }
     if (talkbackOn && (!polledBefore || millis() - lastPoll >= COMMAND_POLL_MS)) {
       takeCommands();
       lastPoll = millis();
@@ -173,9 +252,12 @@ static void publishTask(void*) {
       snprintf(body + n, sizeof(body) - n, "&field%d=%ld", i + 1, value);
     }
     size_t n = strlen(body);
-    snprintf(body + n, sizeof(body) - n, "&field4=%d", FIRMWARE_VERSION);
-    strlcat(body, "&status=", sizeof(body));
-    appendEncoded(body, sizeof(body), status);
+    snprintf(body + n, sizeof(body) - n, "&field4=%d&field5=%d&field6=%u&field7=%.1f",
+             FIRMWARE_VERSION, (int)WiFi.RSSI(), (unsigned)(ESP.getMinFreeHeap() / 1024), millis() / 3600000.0);
+    if (status[0]) {
+      strlcat(body, "&status=", sizeof(body));
+      appendEncoded(body, sizeof(body), status);
+    }
 
     bool ok = send(body);
     lastSendFailed = !ok;
@@ -213,7 +295,11 @@ void publishBegin() {
   talkbackOn = strlen(TS_TALKBACK_ID) && strlen(TS_TALKBACK_KEY);
   if (!talkbackOn) Serial.println(F("[talkback] no TS_TALKBACK_ID / TS_TALKBACK_KEY in secrets.h, commands off"));
   else commandQueue = xQueueCreate(8, sizeof(Command));
-  if (enabled || talkbackOn) xTaskCreate(publishTask, "publish", 16384, nullptr, 1, nullptr);   // HTTPS needs the larger stack
+  slackOn = strlen(SLACK_WEBHOOK_URL) > 0;
+  if (!slackOn) Serial.println(F("[slack] no SLACK_WEBHOOK_URL in secrets.h, Slack off"));
+  else slackQueue = xQueueCreate(4, sizeof(SlackMsg));
+  noteQueue = xQueueCreate(8, sizeof(Note));
+  if (enabled || talkbackOn || slackOn) xTaskCreate(publishTask, "publish", 16384, nullptr, 1, nullptr);   // HTTPS needs the larger stack
 }
 
 NetState publishNetState() {
@@ -232,8 +318,15 @@ void publishPots(const PotReport reports[3], const char* status) {
   portENTER_CRITICAL(&lock);
   // Merge with a change that hasn't been sent yet: the newest state wins, the notes add up
   if (!hasPending) pendingStatus[0] = '\0';
-  else if (strlen(pendingStatus) + strlen(status) + 3 < sizeof(pendingStatus)) strlcat(pendingStatus, ", ", sizeof(pendingStatus));
-  else status = "";
+  if (!status[0]) {
+    // a heartbeat: nothing to add
+  } else if (!pendingStatus[0]) {
+    // first note
+  } else if (strlen(pendingStatus) + strlen(status) + 3 < sizeof(pendingStatus)) {
+    strlcat(pendingStatus, ", ", sizeof(pendingStatus));
+  } else {
+    status = "";
+  }
   strlcat(pendingStatus, status, sizeof(pendingStatus));
   memcpy(pending, reports, sizeof(pending));
   pendingAt = millis();
@@ -245,6 +338,8 @@ void publishPots(const PotReport reports[3], const char* status) {
 
 void publishBegin() { Serial.println(F("[thingspeak] no secrets.h, publishing off (copy secrets.example.h)")); }
 bool publishTakeCommand(char*, size_t) { return false; }
+bool publishTakeNote(char*, size_t) { return false; }
+void publishSlack(const char*, const char*) {}
 NetState publishNetState() { return NET_DISABLED; }
 void publishPots(const PotReport*, const char*) {}
 

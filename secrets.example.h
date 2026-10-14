@@ -19,3 +19,7 @@ static const char* OTA_FILE_NAME = "";  // a random UUID
 // Leave the key empty to turn commands off. The dashboard gets the key from its share link.
 #define TS_TALKBACK_ID  ""
 #define TS_TALKBACK_KEY ""     // the TalkBack's API key
+
+// Slack incoming webhook for "fresh pot" messages (api.slack.com/apps > Incoming Webhooks).
+// It's a secret: anyone with it can post to the channel. Leave it empty to turn Slack off.
+#define SLACK_WEBHOOK_URL ""

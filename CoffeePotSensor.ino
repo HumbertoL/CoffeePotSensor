@@ -25,9 +25,18 @@
 #define REMOVE_DEBOUNCE_MS 3000UL  // ...or "absent" this long before it counts as removed (ignores IR flicker)
 #endif
 #define IDLE_RESTART_MS (48UL * 60 * 60 * 1000)  // restart after this long with no pot activity (e.g. over a weekend)
+#define HEARTBEAT_MS (30UL * 60 * 1000)  // a ThingSpeak entry at least this often (signal, memory, uptime)
+
+// Slack "fresh pot" messages (SLACK_WEBHOOK_URL in secrets.h): only for pots placed on these
+// days, between these times (local time, TIME_ZONE in publish.cpp). Outside that, a placed pot
+// is usually one put back after cleaning, so it's not announced.
+#define SLACK_DAYS ((1 << 2) | (1 << 3) | (1 << 5))   // bits by tm_wday (0 = Sunday): Tue, Wed, Fri
+#define SLACK_FROM_MIN (8 * 60)          // 8:00 am
+#define SLACK_UNTIL_MIN (17 * 60 + 30)   // 5:30 pm
 
 unsigned long lastUpdate = 0;
 unsigned long lastActivity = 0;  // millis() of the last pot placed/removed (or boot)
+unsigned long lastHeartbeat = 0;
 
 struct CoffeePot {
   const char* name;
@@ -128,6 +137,24 @@ void handleCommand(const char* cmd, unsigned long now) {
   publishState(note);
 }
 
+// Posts "Fresh pot" to Slack for a pot just placed, if it's within the Slack days and hours
+void announceFreshPot(const CoffeePot& pot, unsigned long now) {
+#if !SENSOR_TEST
+  if (!clockValid()) return;
+  time_t placed = time(nullptr) - (time_t)((now - pot.placedAt) / 1000);
+  struct tm t;
+  localtime_r(&placed, &t);
+  int minute = t.tm_hour * 60 + t.tm_min;
+  if (!(SLACK_DAYS & (1 << t.tm_wday)) || minute < SLACK_FROM_MIN || minute >= SLACK_UNTIL_MIN) return;
+  char when[12], text[96];
+  strftime(when, sizeof(when), "%l:%M %p", &t);
+  const char* w = when;
+  while (*w == ' ') ++w;   // "%l" pads the hour with a space
+  snprintf(text, sizeof(text), ":coffee: Fresh pot of *%s* on the rack (brewed %s)", pot.name, w);
+  publishSlack(pot.name, text);
+#endif
+}
+
 // Why the board last restarted, for the "Started" note (a crash loop shows up on the dashboard)
 const char* resetReasonText() {
   switch (esp_reset_reason()) {
@@ -154,6 +181,7 @@ void potReports(PotReport reports[3], unsigned long now) {
 // Sends all three pots to ThingSpeak, with a note on what changed
 void publishState(const char* status) {
 #if !SENSOR_TEST
+  lastHeartbeat = millis();   // any entry counts as the heartbeat
   PotReport reports[3];
   potReports(reports, millis());
   publishPots(reports, status);
@@ -215,6 +243,7 @@ void updatePotStatus(CoffeePot& pot, unsigned long now) {
     pot.timeKnown = true;
   }
   pot.present = raw;
+  if (raw) announceFreshPot(pot, now);
 
   char status[24];
   snprintf(status, sizeof(status), "%s %s", pot.name, raw ? "placed" : "removed");
@@ -239,6 +268,13 @@ void loop() {
     char cmd[64];
     while (publishTakeCommand(cmd, sizeof(cmd))) {
       handleCommand(cmd, now);
+    }
+    while (publishTakeNote(cmd, sizeof(cmd))) {
+      publishState(cmd);   // e.g. "Slack: Dark posted"
+    }
+    if (now - lastHeartbeat >= HEARTBEAT_MS) {
+      lastHeartbeat = now;
+      publishState("");    // no note: the activity list skips it
     }
     PotReport reports[3];
     potReports(reports, now);

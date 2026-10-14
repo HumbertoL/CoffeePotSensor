@@ -117,10 +117,10 @@ The board can send each pot's state to ThingSpeak channel **3533214**.
    cp secrets.example.h secrets.h
    ```
    `secrets.h` is gitignored. Without it the sketch still builds, with publishing off.
-2. In the channel's settings, turn on **Field 1–4** and name them Medium, Dark, Decaf and Firmware. ThingSpeak silently drops fields that aren't turned on.
+2. In the channel's settings, turn on **Field 1–7** and name them Medium, Dark, Decaf, Firmware, Wi-Fi signal, Free memory and Uptime. ThingSpeak silently drops fields that aren't turned on.
 3. Flash the board. The serial monitor shows `[thingspeak] entry N` for each accepted entry.
 
-**What's sent:** one entry at boot and one each time a pot is placed or removed (after the debounce). Each entry has all three pots:
+**What's sent:** one entry at boot, one each time a pot is placed or removed (after the debounce), one after each Slack post or dashboard command, and a heartbeat after 30 minutes without any of those. Each entry has all three pots:
 
 | Field | Pot | Value |
 |---|---|---|
@@ -128,7 +128,10 @@ The board can send each pot's state to ThingSpeak channel **3533214**.
 | `field2` | Dark | Same |
 | `field3` | Decaf | Same |
 | `field4` | | The board's firmware version |
-| `status` | | What changed, like `Dark placed`, or `Started` at boot |
+| `field5` | | Wi-Fi signal strength (RSSI, dBm). About -50 is great, below -80 is poor |
+| `field6` | | The lowest free memory since the board started (KB), to spot leaks |
+| `field7` | | Uptime (hours), to spot restarts |
+| `status` | | What happened: `Dark placed`, `Started v39 (power-on)` (the reason the board restarted), `Slack: Dark posted` / `Slack: Dark failed (-1)`, `Dark time set`. Empty for a heartbeat |
 
 The age of a pot is the entry's time minus its field. For example, the latest Dark value is at `https://api.thingspeak.com/channels/3533214/fields/2/last.json` (add `?api_key=<Read API Key>` if the channel is private).
 
@@ -137,6 +140,20 @@ The age of a pot is the entry's time minus its field. For example, the latest Da
 - ThingSpeak's free plan takes one update every 15 s. Changes that come faster are merged into one entry, with both notes in `status`. Failed sends are retried every 30 s.
 - The connection is HTTPS, checked against the root certificates in `thingspeak_root_ca.h`. The clock comes from NTP (`pool.ntp.org`), so the network has to allow it.
 - `SENSOR_TEST` mode publishes nothing.
+
+---
+
+## 💬 Fresh-pot messages in Slack
+
+When a pot is placed on a **Tuesday, Wednesday or Friday between 8:00 am and 5:30 pm** (Central), the board posts to Slack, for example:
+
+> :coffee: Fresh pot of **Dark** on the rack (brewed 2:29 PM)
+
+Pots placed outside those hours (usually put back after cleaning) aren't announced. The days and times are `SLACK_DAYS`, `SLACK_FROM_MIN` and `SLACK_UNTIL_MIN` at the top of `CoffeePotSensor.ino`.
+
+The board posts straight to a Slack **incoming webhook**, which works on every Slack plan; nothing else is hosted. Each post (or failure, after three tries 30 s apart) shows up as a ThingSpeak status, so it's in the dashboard's activity list. HTTPS to Slack is checked against the same roots as ThingSpeak (`thingspeak_root_ca.h`; Slack chains to ISRG Root X1).
+
+Setup: create a Slack app at api.slack.com/apps, turn on **Incoming Webhooks**, add one for the channel, and put its address in `secrets.h` as `SLACK_WEBHOOK_URL`. It's a secret (anyone with it can post to the channel), so it never goes in the repo. A new firmware build carries it to the board over the air.
 
 ---
 
