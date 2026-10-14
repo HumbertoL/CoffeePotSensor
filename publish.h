@@ -28,3 +28,6 @@ bool clockValid();
 // Hands the latest state of all three pots to the network task. Never blocks.
 // status is a short note for the ThingSpeak entry, like "Dark placed".
 void publishPots(const PotReport reports[3], const char* status);
+// Takes the next command from the dashboard (ThingSpeak TalkBack), if one is waiting.
+// Never blocks. Commands: "SET <pot 1-3> <Unix time it was placed>".
+bool publishTakeCommand(char* out, size_t len);

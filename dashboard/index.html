@@ -35,6 +35,13 @@
   .row span:first-child { color: var(--muted); white-space: nowrap; }
   .row span:last-child { text-align: right; }
   .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .fix { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .fix:last-child { border-bottom: none; }
+  .fix .grow { flex: 1; min-width: 180px; }
+  select { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); }
+  input[type="datetime-local"] { width: auto; }
+  .msg { font-size: 14px; margin: 8px 0 0; color: var(--muted); }
+  .msg.bad { color: var(--old); }
   .error { color: var(--old); font-size: 14px; margin-top: 12px; }
   details { margin-top: 32px; font-size: 14px; color: var(--muted); }
   input { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); width: 220px; max-width: 100%; }
@@ -52,6 +59,20 @@
   <h2>Board</h2>
   <div class="card" id="board"></div>
 
+  <section id="fixSection" hidden>
+    <h2>Fix a pot's time</h2>
+    <div class="card">
+      <div id="restoreList"></div>
+      <div class="fix">
+        <span class="grow">Set a brew time by hand</span>
+        <select id="manualPot" aria-label="Pot"></select>
+        <input type="datetime-local" id="manualTime" aria-label="Brew time">
+        <button id="manualSet">Set</button>
+      </div>
+    </div>
+    <p class="msg" id="fixMsg">Only pots on the rack can be set. The board picks up a change within about 20 seconds.</p>
+  </section>
+
   <h2>Recent activity</h2>
   <div class="card" id="activity"></div>
 
@@ -60,10 +81,15 @@
     <p>If the ThingSpeak channel is private, enter its Read API Key. It's saved only in this browser.</p>
     <input id="readKey" placeholder="Read API Key" autocomplete="off">
     <button id="saveKey">Save</button>
+    <p>To fix pot times from here, this browser needs the TalkBack API key. Open the share link you were sent, or paste the key.</p>
+    <input id="talkbackKey" type="password" placeholder="TalkBack API key" autocomplete="off">
+    <button id="saveTalkback">Save</button>
+    <button id="copyLink">Copy share link</button>
   </details>
 </main>
 <script>
 const CHANNEL_ID = "3533214";
+const TALKBACK_ID = "58003";   // ThingSpeak TalkBack for commands to the board (the key comes from the share link)
 const DEPLOYED_FIRMWARE = "";   // stamped by tools/build_netlify.sh
 const POTS = ["Medium", "Dark", "Decaf"];
 const FRESH_MIN = 90, OLD_MIN = 240;   // same as the board (ui.h)
@@ -151,6 +177,7 @@ function renderActivity() {
 function render() {
   renderPots();
   renderBoard();
+  renderFix();
   renderActivity();
   $("updated").textContent = loadedAt ? "Updated " + sinceText(loadedAt) : "Loading…";
 }
@@ -172,6 +199,103 @@ async function load() {
   }
   render();
 }
+
+// ---------- Commands to the board (ThingSpeak TalkBack) ----------
+// The board takes waiting commands every 20 s. The only command is
+// "SET <pot 1-3> <Unix time it was placed>", for a pot that's on the rack.
+
+// A share link carries the TalkBack key as #key=... (after the #, so it's never sent to
+// the server). ?key=... works too. Either way it's saved here and removed from the address bar.
+(function takeKeyFromUrl() {
+  const url = new URL(location.href);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  const k = hash.get("key") || url.searchParams.get("key");
+  if (!k) return;
+  store.set("coffee.talkbackKey", k.trim());
+  hash.delete("key");
+  url.searchParams.delete("key");
+  const rest = hash.toString();
+  try { history.replaceState(null, "", url.pathname + url.search + (rest ? "#" + rest : "")); } catch (e) {}
+})();
+
+const talkbackKey = () => store.get("coffee.talkbackKey");
+
+function fixMessage(text, bad) {
+  $("fixMsg").textContent = text;
+  $("fixMsg").className = "msg" + (bad ? " bad" : "");
+}
+
+async function sendCommand(command) {
+  const body = new URLSearchParams({ api_key: talkbackKey(), command_string: command });
+  const r = await fetch(`https://api.thingspeak.com/talkbacks/${TALKBACK_ID}/commands.json`, { method: "POST", body });
+  const out = (await r.text()).trim();
+  if (r.status === 400 || r.status === 401 || out === "-1") throw new Error("the TalkBack key was rejected");
+  if (!r.ok) throw new Error("ThingSpeak replied " + r.status);
+}
+
+async function setPotTime(i, unix) {
+  try {
+    await sendCommand(`SET ${i + 1} ${unix}`);
+    fixMessage(`Sent: ${POTS[i]} brewed ${timeText(new Date(unix * 1000))}. The board picks it up within about 20 seconds.`);
+  } catch (e) {
+    fixMessage("Couldn't send: " + e.message, true);
+  }
+}
+
+// For a pot the board doesn't know the age of (it was there when the board started),
+// the brew time it last reported before that
+function restoreCandidate(i) {
+  const field = "field" + (i + 1);
+  let sawUnknown = false;
+  for (let k = feeds.length - 1; k >= 0; k--) {
+    const v = feeds[k][field];
+    if (v === null || v === undefined || v === "") continue;
+    const n = Number(v);
+    if (n === 0) { sawUnknown = true; continue; }
+    if (!sawUnknown) return null;     // the board knows this pot's age now
+    return n > 0 ? n : null;          // -1: it was off the rack before the restart
+  }
+  return null;
+}
+
+function renderFix() {
+  const show = !!(TALKBACK_ID && talkbackKey());
+  $("fixSection").hidden = !show;
+  if (!show) return;
+  const rows = POTS.map((name, i) => {
+    const t = restoreCandidate(i);
+    if (!t) return "";
+    return `<div class="fix"><span class="grow">${name}: restore "Brewed ${timeText(new Date(t * 1000))}" from before the restart</span>
+      <button data-restore="${i}" data-time="${t}">Restore</button></div>`;
+  }).join("");
+  $("restoreList").innerHTML = rows || `<div class="fix"><span class="grow">Nothing to restore: every pot on the rack has a known age.</span></div>`;
+  $("restoreList").querySelectorAll("button[data-restore]").forEach(b => {
+    b.onclick = () => setPotTime(Number(b.dataset.restore), Number(b.dataset.time));
+  });
+}
+
+$("manualPot").innerHTML = POTS.map((n, i) => `<option value="${i}">${n}</option>`).join("");
+(function defaultManualTime() {
+  const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+  $("manualTime").value = d.toISOString().slice(0, 16);
+})();
+$("manualSet").onclick = () => {
+  const v = $("manualTime").value;
+  const t = v ? new Date(v).getTime() : NaN;
+  if (isNaN(t)) return fixMessage("Enter a brew time first.", true);
+  if (t > Date.now() + 60000) return fixMessage("The brew time can't be in the future.", true);
+  if (Date.now() - t > 49 * 24 * 3600 * 1000) return fixMessage("The brew time must be within the last 49 days.", true);
+  setPotTime(Number($("manualPot").value), Math.floor(t / 1000));
+};
+
+$("talkbackKey").value = talkbackKey();
+$("saveTalkback").onclick = () => { store.set("coffee.talkbackKey", $("talkbackKey").value.trim()); render(); };
+$("copyLink").onclick = async () => {
+  if (!talkbackKey()) return;
+  const link = `${location.origin}${location.pathname}#key=${encodeURIComponent(talkbackKey())}`;
+  try { await navigator.clipboard.writeText(link); $("copyLink").textContent = "Copied"; }
+  catch (e) { prompt("Share link (it contains the TalkBack key):", link); }
+};
 
 $("refresh").onclick = load;
 $("readKey").value = store.get("coffee.readKey");

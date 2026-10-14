@@ -11,8 +11,8 @@ No tests or CI. To verify a change, compile it. If hardware is attached, also fl
 ```bash
 tools/compile.sh                     # compile (bundled arduino-cli, min_spiffs partition)
 tools/build_netlify.sh               # dashboard + OTA firmware zip for Netlify (needs committed firmware)
+tools/flash.sh [port]                # build_netlify.sh, then flash that same firmware over USB
 CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli"
-"$CLI" upload  --fqbn esp32:esp32:waveshare_esp32_s3_zero:PartitionScheme=min_spiffs --input-dir "$TMPDIR/coffeepot_build" -p /dev/cu.usbmodemXXXX
 "$CLI" monitor -p /dev/cu.usbmodemXXXX -c baudrate=115200
 ```
 
@@ -21,6 +21,8 @@ CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/
 - The board uses native USB (no UART chip), so the port shows up as `/dev/cu.usbmodem*`. If upload can't find it, hold BOOT while plugging in.
 - **Compile both with and without `secrets.h`** before calling a change done (move it aside temporarily). Without it, `publish.cpp` takes a different branch.
 - The sketch folder name must match `CoffeePotSensor.ino`. Arduino compiles every `.cpp` in the folder automatically.
+- **Flash over USB only with `tools/flash.sh`.** A plain build is `FIRMWARE_VERSION` 0, and the board replaces it with the deployed OTA build within minutes, including that build's `secrets.h` values (this bit the user on 2026-10-14). `flash.sh` flashes exactly the `.bin` in the zip.
+- `secrets.h` changes don't bump the version (it's the commit count), so they can't reach a board over the air: flash with `flash.sh` and redeploy the zip.
 - **Partition scheme: `PartitionScheme=min_spiffs`** (two 1.9 MB app slots, for OTA). The board can only take OTA builds made with the scheme it was last flashed with over USB, so never change it casually.
 - Baseline: about 414 KB flash (21%) without `secrets.h`; about 1.12 MB (56%) and 50 KB globals with it (Wi-Fi, HTTPS, OTA).
 - **Never commit credentials.** They go only in `secrets.h`. Before committing, read the staged diff and check that no SSID, password or API key is in it, including in `secrets.example.h`.
@@ -34,10 +36,11 @@ CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/
 | `CoffeePotSensor.ino` | App logic: `CoffeePot` struct, sensor polling and debounce, idle restart. Hands each pot's state to the screen and ThingSpeak as a `PotReport` |
 | `ui.h/.cpp` | The screen, drawn with LovyanGFX (design A: a header, then one row per pot). The LCD pins, the `LGFX` panel config, the freshness cutoffs `FRESH_MIN` (90) / `OLD_MIN` (240) and the colors live here |
 | `publish.h/.cpp` | ThingSpeak publishing: Wi-Fi, NTP (`TIME_ZONE`, US Central) and a FreeRTOS task that posts each pot's placed-at Unix time (`field1–3`; 0 = unknown, -1 = removed) and the firmware version (`field4`). Also `publishNetState()` and `clockValid()` for the screen. The field mapping is in README.md; keep it stable |
+| (TalkBack, in `publish.cpp` + `.ino`) | The network task takes TalkBack commands every 20 s (`TS_TALKBACK_ID` / `TS_TALKBACK_KEY` macros in secrets.h; missing = off) and queues them; `loop()` handles them in `handleCommand`. Only command: `SET <pot 1-3> <unix placed time>`, applied only to a pot on the rack; the board posts "X time set" / "X time not set (reason)". The dashboard computes restore times from the feed (`restoreCandidate`) and takes the TalkBack key from `#key=` / `?key=` in its URL into localStorage |
 | `ota.h/.cpp` | Firmware updates: a task checks `<OTA_BASE_URL><OTA_FILE_NAME>.version` 2 min after boot and hourly, installs the `.bin` with HTTPUpdate if newer than `FIRMWARE_VERSION`, calls `savePotsForRestart()` (in the .ino, RTC memory) and restarts. `otaBusy()` shows "Updating..." in the header |
 | `ota_root_ca.h` | Root certificates for the Netlify download (copied from office_ac_controller) |
 | `dashboard/index.html` | The Netlify dashboard: reads the public ThingSpeak channel (optional Read API Key in localStorage), shows pot ages, the board's last update and firmware version, and recent activity. `DEPLOYED_FIRMWARE` is stamped by `build_netlify.sh` |
-| `tools/compile.sh`, `tools/build_netlify.sh` | Compile, and build `dist/netlify-deploy.zip` (dashboard + `<uuid>.bin` + `<uuid>.version`; version = git commit count) |
+| `tools/compile.sh`, `tools/build_netlify.sh`, `tools/flash.sh` | Compile; build `dist/netlify-deploy.zip` (dashboard + `<uuid>.bin` + `<uuid>.version`; version = git commit count); build the zip and flash that same firmware over USB |
 | `secrets.example.h` | Template for the gitignored `secrets.h` (Wi-Fi SSID and password, ThingSpeak Write API Key, OTA URL parts). Without `secrets.h`, the sketch builds with publishing and updates off (`__has_include`) |
 | `thingspeak_root_ca.h` | Root certificates for HTTPS to api.thingspeak.com (copied from office_ac_controller) |
 

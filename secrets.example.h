@@ -14,3 +14,8 @@ static const char* TS_API_KEY = "";   // ThingSpeak channel 3533214's Write API 
 // OTA_BASE_URL + OTA_FILE_NAME + ".version" / ".bin". Leave OTA_BASE_URL empty to turn updates off.
 static const char* OTA_BASE_URL = "";   // the Netlify site, like "https://name.netlify.app/"
 static const char* OTA_FILE_NAME = "";  // a random UUID
+
+// ThingSpeak TalkBack, for commands from the dashboard (ThingSpeak: Apps > TalkBack).
+// Leave the key empty to turn commands off. The dashboard gets the key from its share link.
+#define TS_TALKBACK_ID  ""
+#define TS_TALKBACK_KEY ""     // the TalkBack's API key

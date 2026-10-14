@@ -8,6 +8,10 @@
 //   status: what changed, like "Dark placed".
 // An entry is sent at boot and whenever a pot is placed or removed.
 //
+// Commands from the dashboard come through ThingSpeak TalkBack (TS_TALKBACK_ID and
+// TS_TALKBACK_KEY in secrets.h). The network task takes waiting commands every 20 s
+// and hands them to the main loop (publishTakeCommand).
+//
 // The network work runs in its own task, so a slow or missing network never holds up
 // the screen or the sensors. Changes that come faster than ThingSpeak's limit (one
 // update every 15 s on the free plan) are merged into one entry. Failed sends are retried.
@@ -30,8 +34,17 @@ bool clockValid() { return time(nullptr) >= CLOCK_VALID; }
 #include <HTTPClient.h>
 #include "thingspeak_root_ca.h"
 
+// Older secrets.h files don't have the TalkBack settings: commands are then off
+#ifndef TS_TALKBACK_ID
+#define TS_TALKBACK_ID ""
+#endif
+#ifndef TS_TALKBACK_KEY
+#define TS_TALKBACK_KEY ""
+#endif
+
 static const unsigned long TS_MIN_GAP_MS = 16000;   // ThingSpeak free plan: one update per 15 s
 static const unsigned long TS_RETRY_MS = 30000;     // wait after a failed send
+static const unsigned long COMMAND_POLL_MS = 20000; // how often to take TalkBack commands
 #define STATUS_LEN 100
 
 // Shared between the main loop and the network task
@@ -45,6 +58,9 @@ static unsigned long lastConnectedAt = 0;      // main loop only
 static PotReport pending[3];
 static unsigned long pendingAt;   // millis() when pending was taken (ages count from here)
 static char pendingStatus[STATUS_LEN];
+static bool talkbackOn = false;
+static QueueHandle_t commandQueue = nullptr;   // TalkBack commands, network task -> main loop
+struct Command { char text[64]; };
 
 // Appends s to a form body, URL-encoded
 static void appendEncoded(char* out, size_t outLen, const char* s) {
@@ -58,18 +74,58 @@ static void appendEncoded(char* out, size_t outLen, const char* s) {
   out[n] = '\0';
 }
 
-// Sends one entry. Returns true if ThingSpeak accepted it (it replies with the entry number, or 0 if rejected).
-static bool send(const char* body) {
+// POSTs a form to api.thingspeak.com over HTTPS. Returns the HTTP status, or a negative HTTPClient error.
+static int post(const char* path, const char* body, String& reply) {
   static WiFiClientSecure client;
   client.setCACert(TS_ROOT_CA);
   HTTPClient http;
   http.setConnectTimeout(8000);   // the HTTPS handshake takes a second or two
   http.setTimeout(8000);
-  if (!http.begin(client, "https://api.thingspeak.com/update")) return false;
+  if (!http.begin(client, String("https://api.thingspeak.com") + path)) return HTTPC_ERROR_CONNECTION_REFUSED;
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   int code = http.POST((uint8_t*)body, strlen(body));
-  String reply = code > 0 ? http.getString() : String("");
+  reply = code > 0 ? http.getString() : String("");
   http.end();
+  return code;
+}
+
+// Takes the waiting TalkBack commands (up to 4) and queues them for the main loop.
+// ThingSpeak replies with {"command_string":"...",...}, or with an empty body when none is waiting.
+static void takeCommands() {
+  char path[64], body[64];
+  snprintf(path, sizeof(path), "/talkbacks/%s/commands/execute.json", TS_TALKBACK_ID);
+  snprintf(body, sizeof(body), "api_key=%s", TS_TALKBACK_KEY);
+  for (int i = 0; i < 4; ++i) {
+    String reply;
+    int code = post(path, body, reply);
+    if (code != 200) {
+      Serial.printf("[talkback] failed: %s\n", code > 0 ? String(code).c_str() : HTTPClient::errorToString(code).c_str());
+      return;
+    }
+    int k = reply.indexOf("\"command_string\":\"");
+    if (k < 0) return;   // nothing waiting
+    k += 18;
+    int end = reply.indexOf('"', k);
+    if (end < 0) return;
+    Command c;
+    strlcpy(c.text, reply.substring(k, end).c_str(), sizeof(c.text));
+    Serial.printf("[talkback] command \"%s\"\n", c.text);
+    xQueueSend(commandQueue, &c, 0);
+  }
+}
+
+bool publishTakeCommand(char* out, size_t len) {
+  if (!commandQueue) return false;
+  Command c;
+  if (xQueueReceive(commandQueue, &c, 0) != pdTRUE) return false;
+  strlcpy(out, c.text, len);
+  return true;
+}
+
+// Sends one entry. Returns true if ThingSpeak accepted it (it replies with the entry number, or 0 if rejected).
+static bool send(const char* body) {
+  String reply;
+  int code = post("/update", body, reply);
   bool ok = code == 200 && reply.toInt() > 0;
   if (ok) Serial.printf("[thingspeak] entry %s\n", reply.c_str());
   else if (code > 0) Serial.printf("[thingspeak] rejected: HTTP %d, reply \"%s\"\n", code, reply.c_str());
@@ -79,13 +135,22 @@ static bool send(const char* body) {
 
 static void publishTask(void*) {
   unsigned long lastSend = 0;
-  bool sentBefore = false;
+  unsigned long waitUntil = 0;   // after a failed send
+  unsigned long lastPoll = 0;
+  bool sentBefore = false, polledBefore = false;
   for (;;) {
     vTaskDelay(pdMS_TO_TICKS(500));
-    if (!hasPending || WiFi.status() != WL_CONNECTED) continue;
+    if (WiFi.status() != WL_CONNECTED) continue;
+    if (talkbackOn && (!polledBefore || millis() - lastPoll >= COMMAND_POLL_MS)) {
+      takeCommands();
+      lastPoll = millis();
+      polledBefore = true;
+    }
+    if (!enabled || !hasPending) continue;
     time_t epoch = time(nullptr);
     if (epoch < CLOCK_VALID) continue;
     if (sentBefore && millis() - lastSend < TS_MIN_GAP_MS) continue;
+    if ((long)(millis() - waitUntil) < 0) continue;
 
     PotReport r[3];
     unsigned long at;
@@ -126,7 +191,7 @@ static void publishTask(void*) {
         hasPending = true;
       }
       portEXIT_CRITICAL(&lock);
-      vTaskDelay(pdMS_TO_TICKS(TS_RETRY_MS));
+      waitUntil = millis() + TS_RETRY_MS;
     }
   }
 }
@@ -143,12 +208,12 @@ void publishBegin() {
   configTzTime(TIME_ZONE, "pool.ntp.org", "time.nist.gov");   // ThingSpeak fields stay Unix (UTC) times
   wifiStarted = true;
   startedAt = millis();
-  if (!strlen(TS_API_KEY)) {
-    Serial.println(F("[thingspeak] no API key in secrets.h, publishing off"));
-    return;
-  }
-  enabled = true;
-  xTaskCreate(publishTask, "publish", 16384, nullptr, 1, nullptr);   // HTTPS needs the larger stack
+  enabled = strlen(TS_API_KEY) > 0;
+  if (!enabled) Serial.println(F("[thingspeak] no API key in secrets.h, publishing off"));
+  talkbackOn = strlen(TS_TALKBACK_ID) && strlen(TS_TALKBACK_KEY);
+  if (!talkbackOn) Serial.println(F("[talkback] no TS_TALKBACK_ID / TS_TALKBACK_KEY in secrets.h, commands off"));
+  else commandQueue = xQueueCreate(8, sizeof(Command));
+  if (enabled || talkbackOn) xTaskCreate(publishTask, "publish", 16384, nullptr, 1, nullptr);   // HTTPS needs the larger stack
 }
 
 NetState publishNetState() {
@@ -179,6 +244,7 @@ void publishPots(const PotReport reports[3], const char* status) {
 #else  // no secrets.h
 
 void publishBegin() { Serial.println(F("[thingspeak] no secrets.h, publishing off (copy secrets.example.h)")); }
+bool publishTakeCommand(char*, size_t) { return false; }
 NetState publishNetState() { return NET_DISABLED; }
 void publishPots(const PotReport*, const char*) {}
 

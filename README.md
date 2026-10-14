@@ -100,11 +100,10 @@ If no pot is placed or removed for **48 hours**, which in an office means the we
 - If the board doesn't show up as a port, hold **BOOT** while plugging it in.
 
 ```bash
-tools/compile.sh
-arduino-cli upload --fqbn esp32:esp32:waveshare_esp32_s3_zero:PartitionScheme=min_spiffs --input-dir "$TMPDIR/coffeepot_build" -p <port>
+tools/flash.sh
 ```
 
-`tools/compile.sh` uses the arduino-cli bundled with the Arduino IDE and the right partition scheme.
+`tools/flash.sh` builds the Netlify zip (below) and flashes the exact same firmware over USB, so the board's version matches the deployed one. Then deploy the zip. **Don't flash from the Arduino IDE** once updates are set up: an IDE build is version 0, so the board replaces it with whatever is on Netlify within a few minutes, including that build's Wi-Fi settings. `tools/compile.sh` only compiles (bundled arduino-cli, right partition scheme).
 
 ---
 
@@ -156,12 +155,20 @@ The board updates itself over Wi-Fi from a Netlify site, which also hosts a simp
 
 The board picks it up within the hour. The dashboard shows the deployed version next to the version the board reports.
 
+**Fixing a pot's time from the dashboard:** after a restart, pots that were on the rack show **?**. The dashboard's "Fix a pot's time" section can send the board the brew time it last reported before the restart (**Restore**), or a time you enter. It goes through a ThingSpeak **TalkBack** queue, which the board checks every 20 seconds; only pots on the rack can be set, and the board posts a note like `Dark time set` or `Dark time not set (not on the rack)`.
+
+The section shows up only in a browser that has the TalkBack API key. Share it as a link: `https://<site>/#key=<TalkBack API key>` (or `?key=`). The dashboard saves the key in that browser and removes it from the address bar; **Settings → Copy share link** makes one. Anyone with the link can set pot times, so share it only with people who should.
+
+Setup: in ThingSpeak, **Apps → TalkBack → New TalkBack**. Put its ID in `TALKBACK_ID` in `dashboard/index.html`, and its ID and API key in `secrets.h` (`TS_TALKBACK_ID`, `TS_TALKBACK_KEY`). Then flash with `tools/flash.sh` and deploy the zip.
+
 **First-time setup:**
 1. Run `tools/build_netlify.sh` and drop the zip on Netlify to create the site. Note its address.
 2. Put the address in `secrets.h` as `OTA_BASE_URL` (like `"https://name.netlify.app/"`).
-3. Flash the board once over USB with the Minimal SPIFFS partition scheme. From then on it updates itself.
+3. Flash the board once over USB with `tools/flash.sh`, and deploy the zip it builds. From then on it updates itself.
 
-A build from the Arduino IDE is version 0, so the board replaces it with the published firmware at its next check. To test local changes on the board, leave `OTA_BASE_URL` empty while you do.
+A build from the Arduino IDE is version 0, so the board replaces it with the published firmware at its next check. Use `tools/flash.sh` instead. To test uncommitted changes on the board, leave `OTA_BASE_URL` empty while you do.
+
+**Changing `secrets.h`** (for example the Wi-Fi password) doesn't change the version, which comes from the commit count. A board can't pick that up over the air, so flash it with `tools/flash.sh` and deploy the new zip, so Netlify doesn't keep serving the old settings.
 
 ---
 

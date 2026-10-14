@@ -99,6 +99,35 @@ void restorePots(unsigned long now) {
   if (any) publishState("Ages restored after update");
 }
 
+// A command from the dashboard (ThingSpeak TalkBack):
+//   SET <pot 1-3> <Unix time>   the pot was placed at that time (restoring its age after a
+//                               restart, or entering it by hand). Only for a pot on the rack.
+void handleCommand(const char* cmd, unsigned long now) {
+  int pot = 0;
+  long long placed = 0;
+  char note[48];
+  if (sscanf(cmd, "SET %d %lld", &pot, &placed) != 2 || pot < 1 || pot > 3) {
+    Serial.printf("[talkback] unknown command \"%s\"\n", cmd);
+    return;
+  }
+  CoffeePot& p = pots[pot - 1];
+  time_t epoch = time(nullptr);
+  if (!clockValid()) {
+    snprintf(note, sizeof(note), "%s time not set (no clock yet)", p.name);
+  } else if (!p.present) {
+    snprintf(note, sizeof(note), "%s time not set (not on the rack)", p.name);
+  } else if (placed > epoch + 60 || epoch - placed > 49LL * 24 * 3600) {
+    snprintf(note, sizeof(note), "%s time not set (out of range)", p.name);
+  } else {
+    unsigned long ageMs = placed >= epoch ? 0 : (unsigned long)(epoch - placed) * 1000UL;
+    p.placedAt = now - ageMs;
+    p.timeKnown = true;
+    snprintf(note, sizeof(note), "%s time set", p.name);
+  }
+  Serial.printf("[talkback] %s\n", note);
+  publishState(note);
+}
+
 // Why the board last restarted, for the "Started" note (a crash loop shows up on the dashboard)
 const char* resetReasonText() {
   switch (esp_reset_reason()) {
@@ -206,6 +235,10 @@ void loop() {
     restorePots(now);
     for (int i = 0; i < 3; ++i) {
       updatePotStatus(pots[i], now);
+    }
+    char cmd[64];
+    while (publishTakeCommand(cmd, sizeof(cmd))) {
+      handleCommand(cmd, now);
     }
     PotReport reports[3];
     potReports(reports, now);
