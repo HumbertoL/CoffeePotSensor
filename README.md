@@ -133,6 +133,8 @@ The board can send each pot's state to ThingSpeak channel **3533214**.
 | `field7` | | Uptime (hours), to spot restarts |
 | `status` | | What happened: `Dark placed`, `Started v39 (power-on)` (the reason the board restarted: power-on, crash, watchdog, brownout, idle restart…), `Updated v39 → v40` after an over-the-air update, `Update to v40 failed (-104)`, `Slack: Dark posted` / `Slack: Dark failed (-1)`, `Dark time set`. Empty for a heartbeat |
 
+**Other apps read this channel**, so keep the field meanings stable: the dashboard (below), and the office's internal floor map, which shows each pot's age in the break-area popup ("Medium 34 min", "Age unknown").
+
 The age of a pot is the entry's time minus its field. For example, the latest Dark value is at `https://api.thingspeak.com/channels/3533214/fields/2/last.json` (add `?api_key=<Read API Key>` if the channel is private).
 
 **Notes:**
@@ -145,7 +147,7 @@ The age of a pot is the entry's time minus its field. For example, the latest Da
 
 ## 💬 Fresh-pot messages in Slack
 
-When a pot is placed on a **Tuesday, Wednesday or Friday between 8:00 am and 5:30 pm** (Central), the board posts to Slack, for example:
+When a pot is placed on a **Tuesday, Wednesday or Friday between 8:00 am and 5:30 pm** (Central), the board posts to the **#coffee-club** Slack channel, as the "brew-em-all" app, for example:
 
 > :coffee: Fresh pot of **Dark** on the rack (brewed 2:29 PM)
 

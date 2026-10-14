@@ -14,7 +14,7 @@ As installed on 2026-10-14 (from the user's photos):
   - **Mast:** up the middle, behind the center pot. Its middle joint is wrapped in black tape.
   - **Head:** above the center pot, between the pump levers, at about eye level for someone at the counter. The screen's rows read Medium, Dark, Decaf top to bottom, matching the pots left to right.
   - **Power:** a USB-C cable out of the head's left side to a USB charger in the outlet to the left of the pots.
-- **Wi-Fi:** on the first install the screen showed the **offline** icon (2026-10-14), so the office Wi-Fi may be weak or unreachable at that spot. ThingSpeak's `field5` (RSSI) shows the signal once the board can connect.
+- **Wi-Fi:** right after install the screen showed the **offline** icon, but the board was online later that day (its first Slack post went out at 11:41 on 2026-10-14). ThingSpeak's `field5` (RSSI) shows the signal at that spot.
 
 ## Display: Waveshare 2inch LCD Module
 
