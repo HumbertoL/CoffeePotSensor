@@ -87,7 +87,7 @@ void otaBegin() {
     return;
   }
   // Wi-Fi is started by publishBegin(); this task just waits for it
-  xTaskCreate(otaTask, "ota", 8192, nullptr, 1, nullptr);
+  xTaskCreate(otaTask, "ota", 16384, nullptr, 1, nullptr);   // HTTPS needs the larger stack
 }
 
 #else  // no secrets.h

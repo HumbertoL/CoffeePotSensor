@@ -148,7 +148,7 @@ void publishBegin() {
     return;
   }
   enabled = true;
-  xTaskCreate(publishTask, "publish", 8192, nullptr, 1, nullptr);
+  xTaskCreate(publishTask, "publish", 16384, nullptr, 1, nullptr);   // HTTPS needs the larger stack
 }
 
 NetState publishNetState() {

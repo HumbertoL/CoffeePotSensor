@@ -99,6 +99,21 @@ void restorePots(unsigned long now) {
   if (any) publishState("Ages restored after update");
 }
 
+// Why the board last restarted, for the "Started" note (a crash loop shows up on the dashboard)
+const char* resetReasonText() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return "power-on";
+    case ESP_RST_SW: return "restart";
+    case ESP_RST_PANIC: return "crash";
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT: return "watchdog";
+    case ESP_RST_BROWNOUT: return "brownout";
+    case ESP_RST_USB: return "USB";
+    default: return "other";
+  }
+}
+
 // Each pot's state, for the screen and ThingSpeak
 void potReports(PotReport reports[3], unsigned long now) {
   for (int i = 0; i < 3; ++i) {
@@ -138,8 +153,9 @@ void setup() {
 
   publishBegin();
   otaBegin();
-  char status[24];
-  snprintf(status, sizeof(status), "Started v%d", FIRMWARE_VERSION);
+  char status[40];
+  snprintf(status, sizeof(status), "Started v%d (%s)", FIRMWARE_VERSION, resetReasonText());
+  Serial.printf("[BOOT] %s\n", status);
   publishState(status);
 }
 
