@@ -8,6 +8,7 @@
 // that never appears in the repo. Downloads use HTTPS, checked against ota_root_ca.h.
 
 #include "ota.h"
+#include "publish.h"   // publishAddNote
 
 #if __has_include("secrets.h")
 #include "secrets.h"
@@ -69,6 +70,9 @@ static void checkAndInstall() {
     ESP.restart();
   }
   Serial.printf("[ota] failed: %s\n", httpUpdate.getLastErrorString().c_str());
+  char note[48];
+  snprintf(note, sizeof(note), "Update to v%ld failed (%d)", v, httpUpdate.getLastError());
+  publishAddNote(note);
   busy = false;
 }
 

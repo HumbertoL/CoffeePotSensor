@@ -63,8 +63,26 @@ bool isPotPresent(const CoffeePot& pot) {
 
 // Restart from scratch: millis() starts over and setup() runs again
 // (which also resets the LCD).
+// Why the board restarted itself, kept across the restart (RTC memory survives a
+// software reset), so the "Started" note can say so
+#define RESTART_MAGIC 0xB0071E55
+enum RestartWhy : uint8_t { WHY_IDLE = 1, WHY_UPDATE = 2 };
+struct RestartNote {
+  uint32_t magic;
+  uint8_t why;
+  int32_t fromVersion;   // WHY_UPDATE: the version before the update
+};
+RTC_NOINIT_ATTR RestartNote restartNote;
+
+void noteRestart(uint8_t why) {   // a RestartWhy (uint8_t: the .ino's auto-prototypes come before the enum)
+  restartNote.why = why;
+  restartNote.fromVersion = FIRMWARE_VERSION;
+  restartNote.magic = RESTART_MAGIC;
+}
+
 void restart() {
   Serial.println(F("[debug] No pot activity, restarting..."));
+  noteRestart(WHY_IDLE);
   Serial.flush();
   ESP.restart();
 }
@@ -81,6 +99,7 @@ RTC_NOINIT_ATTR SavedPots savedPots;
 bool restorePending = false;
 
 void savePotsForRestart() {
+  noteRestart(WHY_UPDATE);
   if (!clockValid()) return;   // no clock: the ages can't be carried over
   time_t epoch = time(nullptr);
   unsigned long now = millis();
@@ -210,8 +229,17 @@ void setup() {
 
   publishBegin();
   otaBegin();
+  // "Updated v38 → v39" after an update, "Started v39 (idle restart)" after the weekend
+  // restart, otherwise "Started v39 (power-on)" and so on
   char status[40];
-  snprintf(status, sizeof(status), "Started v%d (%s)", FIRMWARE_VERSION, resetReasonText());
+  bool noted = esp_reset_reason() == ESP_RST_SW && restartNote.magic == RESTART_MAGIC;
+  if (noted && restartNote.why == WHY_UPDATE) {
+    snprintf(status, sizeof(status), "Updated v%ld \u2192 v%d", (long)restartNote.fromVersion, FIRMWARE_VERSION);
+  } else {
+    snprintf(status, sizeof(status), "Started v%d (%s)", FIRMWARE_VERSION,
+             noted && restartNote.why == WHY_IDLE ? "idle restart" : resetReasonText());
+  }
+  restartNote.magic = 0;
   Serial.printf("[BOOT] %s\n", status);
   publishState(status);
 }

@@ -36,3 +36,5 @@ bool publishTakeCommand(char* out, size_t len);
 void publishSlack(const char* label, const char* text);
 // Takes the next note from the network task (like "Slack: Dark posted"), for a ThingSpeak status.
 bool publishTakeNote(char* out, size_t len);
+// Adds a note from any task (like the OTA task), for the next ThingSpeak status
+void publishAddNote(const char* text);

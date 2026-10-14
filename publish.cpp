@@ -160,6 +160,12 @@ void publishSlack(const char* label, const char* text) {
   if (xQueueSend(slackQueue, &m, 0) != pdTRUE) Serial.println(F("[slack] queue full, dropped"));
 }
 
+void publishAddNote(const char* text) {
+  Note n;
+  strlcpy(n.text, text, sizeof(n.text));
+  if (noteQueue) xQueueSend(noteQueue, &n, 0);
+}
+
 bool publishTakeNote(char* out, size_t len) {
   if (!noteQueue) return false;
   Note n;
@@ -339,6 +345,7 @@ void publishPots(const PotReport reports[3], const char* status) {
 void publishBegin() { Serial.println(F("[thingspeak] no secrets.h, publishing off (copy secrets.example.h)")); }
 bool publishTakeCommand(char*, size_t) { return false; }
 bool publishTakeNote(char*, size_t) { return false; }
+void publishAddNote(const char*) {}
 void publishSlack(const char*, const char*) {}
 NetState publishNetState() { return NET_DISABLED; }
 void publishPots(const PotReport*, const char*) {}

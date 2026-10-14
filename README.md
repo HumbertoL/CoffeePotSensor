@@ -131,7 +131,7 @@ The board can send each pot's state to ThingSpeak channel **3533214**.
 | `field5` | | Wi-Fi signal strength (RSSI, dBm). About -50 is great, below -80 is poor |
 | `field6` | | The lowest free memory since the board started (KB), to spot leaks |
 | `field7` | | Uptime (hours), to spot restarts |
-| `status` | | What happened: `Dark placed`, `Started v39 (power-on)` (the reason the board restarted), `Slack: Dark posted` / `Slack: Dark failed (-1)`, `Dark time set`. Empty for a heartbeat |
+| `status` | | What happened: `Dark placed`, `Started v39 (power-on)` (the reason the board restarted: power-on, crash, watchdog, brownout, idle restart…), `Updated v39 → v40` after an over-the-air update, `Update to v40 failed (-104)`, `Slack: Dark posted` / `Slack: Dark failed (-1)`, `Dark time set`. Empty for a heartbeat |
 
 The age of a pot is the entry's time minus its field. For example, the latest Dark value is at `https://api.thingspeak.com/channels/3533214/fields/2/last.json` (add `?api_key=<Read API Key>` if the channel is private).
 
@@ -170,7 +170,7 @@ The board updates itself over Wi-Fi from a Netlify site, which also hosts a simp
 2. Run `tools/build_netlify.sh`. It writes `dist/netlify-deploy.zip` (gitignored) with `index.html`, `<uuid>.bin` and `<uuid>.version`.
 3. Drag the zip onto the site's **Deploys** page on Netlify.
 
-The board picks it up within the hour. The dashboard shows the deployed version next to the version the board reports.
+The board picks it up within the hour and posts `Updated v39 → v40` to the activity list (or `Update to v40 failed (code)`). The dashboard shows the deployed version next to the version the board reports.
 
 **Fixing a pot's time from the dashboard:** after a restart, pots that were on the rack show **?**. The dashboard's "Fix a pot's time" section can send the board the brew time it last reported before the restart (**Restore**), or a time you enter. It goes through a ThingSpeak **TalkBack** queue, which the board checks every 20 seconds; only pots on the rack can be set, and the board posts a note like `Dark time set` or `Dark time not set (not on the rack)`.
 
