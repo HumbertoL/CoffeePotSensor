@@ -4,12 +4,17 @@ This is everything known so far about the physical build: the parts, how they're
 
 ## Physical setup
 
-- **Mounting:** the device mounts on the **wall behind the coffee pots**. The sensors face forward at the backs of the pots.
-- **Three pots, left to right:** Medium, Dark, Decaf. Each pot has one sensor.
-- **Current build:** everything is in one 3D-printed shell: the microcontroller, the display, and all three sensors. The wiring inside it is messy.
-- **Planned redesign:** split it into two parts, joined by one cable.
-  - **Sensor rod:** a slim bar holding the three sensors, hanging down to the height of the pots.
-  - **Brain box:** a small box higher up on the wall with the ESP32-S3-Zero and the display.
+As installed on 2026-10-14 (from the user's photos):
+
+- **The pots:** three **BUNN airpots** (pump-action, with a lever on top), labeled **MEDIUM, DARK, DECAF from left to right**. They sit in a BUNN wire rack on the counter, against a tiled wall.
+  - **Coffee is pumped out, so the pots stay on the rack while people pour.** A pot only leaves the rack to be refilled at the brewer, or to be cleaned. So any placement is a fresh pot (or one put back after cleaning), and no "minimum time off the rack" rule is needed.
+  - **Cleaning happens after hours.** Putting a cleaned pot back looks exactly like a fresh pot, which is why the Slack messages only go out during the day (see README.md).
+- **The device:** case v2 (`case/v2/`), mounted on the **wall behind the pots** (Velcro on the flat backs).
+  - **Sensor bar:** low on the wall, just above the rack, behind the pots. Each sensor faces forward at the back of its pot, with its LEDs sticking out through the cover.
+  - **Mast:** up the middle, behind the center pot. Its middle joint is wrapped in black tape.
+  - **Head:** above the center pot, between the pump levers, at about eye level for someone at the counter. The screen's rows read Medium, Dark, Decaf top to bottom, matching the pots left to right.
+  - **Power:** a USB-C cable out of the head's left side to a USB charger in the outlet to the left of the pots.
+- **Wi-Fi:** on the first install the screen showed the **offline** icon (2026-10-14), so the office Wi-Fi may be weak or unreachable at that spot. ThingSpeak's `field5` (RSSI) shows the signal once the board can connect.
 
 ## Display: Waveshare 2inch LCD Module
 
@@ -223,17 +228,8 @@ When enough IR bounces back, the comparator pulls OUT **LOW**. The firmware trea
   - A sensor tuned right at its threshold will flicker.
 - **Firmware debounce:** a pot counts as placed after 1 s of steady "present", and as removed after 3 s of steady "absent". A hand passing by or a brief dropout won't reset the timer.
 
-## Planned sensor rod wiring
-
-The sensors only produce three on/off signals, so the rod needs **one 5-wire cable**: 3V3, GND, and the three outputs. A second microcontroller or an I2C bus isn't needed.
-
-- **On the rod:** mount the three modules on one strip of perfboard. Run a shared 3V3 rail and a shared GND rail along it.
-- **Cable:** Ethernet cable is a good fit. It has 8 wires, so 3 are spare for a fourth sensor. It's cheap, comes in any length, and RJ45 jacks on both ends make the rod detachable.
-- **Length:** plain on/off signals like these are reliable over 1–2 m. The firmware debounce absorbs occasional noise.
-- **Code:** nothing changes.
-
 ## Firmware behavior that depends on the hardware
 
-- **Power-on:** a pot already on the rack at power-on shows **Unknown**. Its timer starts the next time it's put back.
+- **Power-on:** a pot already on the rack at power-on shows **?**. Its timer starts the next time it's put back, or when its time is restored from the dashboard.
 - **Idle restart:** with no pot activity for 48 h (a weekend), the device restarts itself.
 - **ESP32 watchdog:** the ESP32 also has a hardware watchdog that reboots it if the firmware hangs.

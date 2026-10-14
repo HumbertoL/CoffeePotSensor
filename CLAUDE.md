@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots has been sitting on the rack (the pots sit on a rack, not a burner) and shows it on a Waveshare 2" ST7789 SPI LCD. It runs on a **Waveshare ESP32-S3-Zero** (ESP32-S3FH4R2, 3.3 V, Wi-Fi) and publishes to ThingSpeak.
+Arduino sketch ("brew-em-all") that tracks how long each of three coffee pots has been sitting on the rack (BUNN pump airpots on a wire rack, not a burner; people pour without lifting them) and shows it on a Waveshare 2" ST7789 SPI LCD. It runs on a **Waveshare ESP32-S3-Zero** (ESP32-S3FH4R2, 3.3 V, Wi-Fi) and publishes to ThingSpeak.
 
 The Arduino Nano was dropped on 2026-10-12, along with the Waveshare driver files (in git history up to `63bcd10`). ESP8266 was dropped before that. See [README.md](README.md) for wiring, the screen and ThingSpeak. See [docs/HARDWARE.md](docs/HARDWARE.md) for part specs, sensor behavior and the physical setup (wall-mounted behind the pots). Keep that file up to date when hardware facts change. Planned ideas (ToF sensors, OTA updates) are tracked in [docs/FUTURE_WORK.md](docs/FUTURE_WORK.md).
 
@@ -65,7 +65,7 @@ CLI="/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/
 - 320 × 240 landscape: a 30 px header (title, local clock once NTP has set it, network icon), then three 70 px rows (name, age in a large font colored by freshness, "Brewed 2:29 pm" or "Brewed Oct 3", the word Fresh / OK / Old, and a bar that empties at `OLD_MIN`).
 - Each region is drawn into a sprite (header 320 × 30; one shared 320 × 70 row sprite, 45 KB) and pushed in one burst, so there's no flicker. A region is redrawn only when its content key changes. PSRAM is off (the board default), so keep sprites small.
 - Fonts are LovyanGFX built-ins: `DejaVu18`/`DejaVu12` (smooth) and `FreeSansBold18pt7b` for the age.
-- Panel config (unverified on hardware as of 2026-10-12): SPI2 at 20 MHz, mode 3, `invert = true`, `setRotation(3)` (the old Waveshare demo used MADCTL 0xA0 and INVON). If the image is upside down, use rotation 1; if red and blue are swapped, set `rgb_order`.
+- Panel config: SPI2 at 20 MHz, mode 3, `invert = true`, `setRotation(3)`. Orientation and layout are confirmed on the installed board (photo, 2026-10-14). Exact colors aren't confirmed (the photo looks blue-tinted, which could be the camera).
 - Never call the pots' place a "burner".
 
 ## Constraints and gotchas

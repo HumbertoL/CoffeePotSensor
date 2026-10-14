@@ -36,7 +36,7 @@ The preview draws every wire along this route. See the wiring renders below.
 - **Boards:** no screws. Each board is held by a post, pocket or ledge in the body, and the cover clamps it.
 - **Screen height:** `screen_h` sets the distance from the center sensor's LEDs to the bottom of the visible image. It defaults to 12.5 in (317.5 mm). Changing it only changes the mast pieces and their strips.
 
-## Status and next steps (as of 2026-10-12)
+## Status and next steps (as of 2026-10-14)
 
 | Item | Status |
 |---|---|
@@ -46,7 +46,7 @@ The preview draws every wire along this route. See the wiring renders below.
 | Dovetails (`dt_clr` 0.05, `dt_rib` 0.15) | **Confirmed** in the second `joint_test` |
 | Mast socket (`sock_clr` 0.1) | **Confirmed** in the second `joint_test` |
 | Detection through the cover | **Works** with the cover resting on the sensitivity screw and the LEDs sticking out 4.6 mm (`pot_gap` 0). Earlier covers, with the tips 3 mm inside or 1.5 mm out, read "present" all the time |
-| Head (window, ESP32 supports, Porcupine fences, LCD pins), spider board holder | Not printed yet. All low-risk; print the real parts |
+| Full print | **Printed, assembled and installed** on 2026-10-14 (see docs/HARDWARE.md, "Physical setup"). The screen sits well in its window. The mast's middle joint is wrapped in black tape |
 
 **Next:**
 1. Print the full set (12 parts). They fit on one MK4S plate, as `stl/plate_layout.scad` shows, or can be split into a bar batch and a mast + head batch.
